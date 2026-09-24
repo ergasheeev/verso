@@ -1,0 +1,70 @@
+import { useCallback } from "react";
+import { useAppStore } from "@/store";
+import { apiClient } from "@/lib/api-client";
+import type { User } from "@/types";
+
+interface UseAuthReturn {
+  user: User | null;
+  isLoggedIn: boolean;
+  authModalOpen: boolean;
+  login: (user: User) => void;
+  logout: () => void;
+  updateUser: (data: Partial<User>) => void;
+  checkAuth: () => Promise<void>;
+  requireAuth: (callback: () => void) => void;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
+}
+
+export function useAuth(): UseAuthReturn {
+  // Field-by-field selectors, not `useAppStore()`. Destructuring the whole
+  // store subscribes the component to EVERY slice of it, so any component
+  // that calls this hook re-renders on every unrelated state change too.
+  const user           = useAppStore((s) => s.user);
+  const isLoggedIn     = useAppStore((s) => s.isLoggedIn);
+  const login          = useAppStore((s) => s.login);
+  const logout         = useAppStore((s) => s.logout);
+  const updateUser     = useAppStore((s) => s.updateUser);
+  const authModalOpen  = useAppStore((s) => s.authModalOpen);
+  const openAuthModal  = useAppStore((s) => s.openAuthModal);
+  const closeAuthModal = useAppStore((s) => s.closeAuthModal);
+
+  const checkAuth = useCallback(async () => {
+    const token = localStorage.getItem("trova-token");
+    if (!token) return;
+    try {
+      const me = await apiClient.get<User>("/auth/me");
+      login(me);
+    } catch (err) {
+      // Only drop the session on an actual auth rejection (401) — a
+      // transient network error here shouldn't log out a valid session,
+      // it would otherwise wipe the user's profile on a flaky connection.
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        localStorage.removeItem("trova-token");
+        logout();
+      }
+    }
+  }, [login, logout]);
+
+  const requireAuth = useCallback(
+    (callback: () => void) => {
+      if (isLoggedIn) callback();
+      else openAuthModal();
+    },
+    [isLoggedIn, openAuthModal]
+  );
+
+  return {
+    user,
+    isLoggedIn,
+    authModalOpen,
+    login,
+    logout,
+    updateUser,
+    checkAuth,
+    requireAuth,
+    openAuthModal,
+    closeAuthModal,
+  };
+}
