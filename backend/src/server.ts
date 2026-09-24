@@ -12,10 +12,6 @@ import { sendError } from "@/utils/response";
 
 const app = express();
 
-// Render (and most PaaS hosts) sit behind a reverse proxy — without this,
-// express-rate-limit refuses to trust the X-Forwarded-For header it needs
-// to identify clients, throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every
-// request. `1` trusts exactly one hop (the platform's own proxy).
 app.set("trust proxy", 1);
 
 // ── Security headers ─────────────────────────────────
@@ -63,10 +59,6 @@ const globalLimiter = rateLimit({
 app.use("/api", globalLimiter);
 
 // ── Strict rate limit for code-sending: 5 req / 15 min ─
-// The per-email cooldown in issueVerificationCode already stops one
-// address being bombarded, but nothing stops a caller cycling through
-// many different addresses — each one a real email sent from our quota.
-// This caps it per client IP.
 const mailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -77,6 +69,7 @@ const mailLimiter = rateLimit({
 });
 app.use("/api/auth/register", mailLimiter);
 app.use("/api/auth/resend-code", mailLimiter);
+app.use("/api/auth/forgot-password", mailLimiter);
 
 // ── Health check ──────────────────────────────────────
 app.get("/health", (_req, res) => {

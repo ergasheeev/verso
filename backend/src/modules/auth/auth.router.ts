@@ -66,6 +66,10 @@ const resendSchema = z.object({
   email: z.string().email(),
 });
 
+const forgotSchema = z.object({
+  email: z.string().email(),
+});
+
 // ── POST /api/auth/register ────────────────────────────
 authRouter.post(
   "/register",
@@ -105,9 +109,6 @@ authRouter.post(
     try {
       const { email } = req.body as z.infer<typeof resendSchema>;
       const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-      // Always answer the same way regardless of whether the account exists
-      // or is already verified — a differing response here would turn this
-      // endpoint into a free "is this address registered?" oracle.
       let devCode: string | null = null;
       if (user && !user.emailVerified) {
         devCode = await authService.issueVerificationCode(email);
@@ -126,6 +127,27 @@ authRouter.post(
       const result = await authService.login(req.body as z.infer<typeof loginSchema>);
       setRefreshCookie(res, result.tokens.refreshToken);
       sendSuccess(res, { user: result.user, accessToken: result.tokens.accessToken }, "Xush kelibsiz!");
+    } catch (err) { next(err); }
+  }
+);
+
+// ── POST /api/auth/forgot-password ─────────────────────
+authRouter.post(
+  "/forgot-password",
+  validateBody(forgotSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.body as z.infer<typeof forgotSchema>;
+      const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+
+      let devCode: string | null = null;
+      // A password-less account (legacy Google sign-in) has nothing to reset, so
+      // it is skipped — but the response stays identical either way, since
+      // revealing "no account here" would let anyone probe registered addresses.
+      if (user?.passwordHash) {
+        devCode = await authService.issueVerificationCode(email, "PASSWORD_RESET");
+      }
+      sendSuccess(res, devCode ? { devCode } : null, "Agar bunday akkaunt mavjud bo'lsa, kod yuborildi");
     } catch (err) { next(err); }
   }
 );
