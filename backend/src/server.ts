@@ -3,6 +3,7 @@ import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 
 import { env } from "@/config/env";
 import { connectDatabase } from "@/config/database";
@@ -10,6 +11,12 @@ import { errorHandler } from "@/middleware/error-handler";
 import { sendError } from "@/utils/response";
 
 const app = express();
+
+// Render (and most PaaS hosts) sit behind a reverse proxy — without this,
+// express-rate-limit refuses to trust the X-Forwarded-For header it needs
+// to identify clients, throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every
+// request. `1` trusts exactly one hop (the platform's own proxy).
+app.set("trust proxy", 1);
 
 // ── Security headers ─────────────────────────────────
 app.use(helmet());
@@ -50,6 +57,17 @@ app.use(cookieParser());
 if (env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
+
+// ── Global rate limit: 100 req / 15 min ──────────────
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) =>
+    sendError(res, "Too many requests. Please try again later.", 429),
+});
+app.use("/api", globalLimiter);
 
 // ── Health check ──────────────────────────────────────
 app.get("/health", (_req, res) => {
