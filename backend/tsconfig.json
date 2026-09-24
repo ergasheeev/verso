@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  // verso-dataset is a standalone authoring toolkit (Python/ts-node scripts,
+  // its own package needs like `glob`) that produced the data files now
+  // merged into countries.ts/global-places.ts/global-knowledge-base.ts. It
+  // is never imported by the running app and was never meant to compile
+  // with it — only its own scripts run it, directly with ts-node.
+  "exclude": ["node_modules", "dist", "src/data/verso-dataset"]
+}
