@@ -1,0 +1,269 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Verso design tokens — "Midnight + Amber Gold" ───────────────────────
+   Dark-first editorial palette. The canvas is near-black and slightly warm
+   (#0C0A09 rather than a neutral #0B0B0B), so gold on it reads as ink-on-paper
+   rather than neon-on-void.
+
+   Two rules the whole system rests on:
+
+     • Elevation is surface + hairline, never a drop shadow. On a near-black
+       canvas a black shadow is invisible. Each step (canvas → card → modal) is a
+       visible tone change, separated by a 10%-bone hairline.
+
+     • Gold is scarce. It marks the primary action, live/premium state, and the
+       editorial rules that structure a page. Everything else is bone, muted
+       bone, or canvas.
+
+   --modal is declared here rather than in a second :root block after .dark
+   because :root matches <html> regardless of theme class: an equal-specificity
+   :root rule placed later would override .dark. */
+:root {
+  --background:        #FAF6EF; /* warm paper */
+  --foreground:        #1A1613; /* warm ink */
+  --card:              #FFFDFA;
+  --card-hover:        #F4EEE3;
+  --border:            rgba(26, 22, 19, 0.11);
+  --border-focus:      #8A6224;
+  --muted:             #F0E9DC;
+  --muted-foreground:  rgba(26, 22, 19, 0.58);
+  /* On paper the signature #E0A94E drops to 1.9:1 — unusable for text. The
+     light theme therefore runs the ramp's 700 step, which measures 4.84:1
+     on this canvas and clears AA while staying unmistakably gold. */
+  --primary:           #8A6224;
+  --primary-hover:     #6B4C1E;
+  --ring:              #8A6224;
+  --gold:              #8A6224;
+  /* Feeds Tailwind's "accent" colour, which every piece of gold *text*
+     uses. On paper it has to be the darker ramp step: the signature #E0A94E
+     measures 1.87:1 here, which is unreadable. Gold *fills* keep #E0A94E in
+     both themes - see the note beside accent in tailwind.config.js. */
+  --gold-rgb:          138 98 36;
+  --gold-soft:         rgba(138, 98, 36, 0.10);
+  --gold-hairline:     rgba(138, 98, 36, 0.28);
+  --copper:            #874B2E;
+  --input-bg:          #F5F0E8;
+  --input-border:      rgba(26, 22, 19, 0.14);
+  --sidebar-bg:        rgba(250, 247, 242, 0.86);
+  --sidebar-border:    rgba(26, 22, 19, 0.10);
+  --header-bg:         rgba(250, 247, 242, 0.88);
+  --nav-bg:            rgba(250, 247, 242, 0.97);
+  --modal:             #FFFFFF;
+  --modal-border:      rgba(26, 22, 19, 0.12);
+  --shadow-card:       0 1px 2px 0 rgb(26 22 19 / 0.05), 0 8px 24px -12px rgb(26 22 19 / 0.10);
+  --shadow-card-hover: 0 2px 4px 0 rgb(26 22 19 / 0.07), 0 20px 44px -16px rgb(26 22 19 / 0.16);
+  --shadow-sm:         0 1px 2px 0 rgb(26 22 19 / 0.06);
+  --shadow-modal:      0 30px 70px -18px rgb(26 22 19 / 0.24), 0 0 0 1px rgb(26 22 19 / 0.05);
+  --grain-opacity:     0.035;
+
+  /* CJK faces are named explicitly rather than left to `serif`/`sans-serif`:
+     neither Literata nor Inter carries Han glyphs, and without a stated
+     fallback Chinese rendered in whatever the OS happened to pick, which
+     differed on every machine. */
+  --font-body:    "Inter", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-display: "Literata", Georgia, "Songti SC", "Noto Serif CJK SC", ui-serif, serif;
+  /* System stack — no webfont. See the .mono / .font-mono rules below. */
+  --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.dark {
+  /* Elevation ramp — each step is a real tone change, not a shadow.
+     L0 --background : #0C0A09  warm near-black
+     L1 --card       : #17130F  surface
+     L2 --modal      : #201A14  elevated — a modal must never read as
+                        "the page, just blurred"
+     Accent          : #E0A94E  amber, 10.2:1 on L0
+
+   The whole ramp sits on a warm axis: against gold a cold blue-black reads as
+   technical, and the warm axis costs nothing in contrast. */
+  --background:        #0C0A09;
+  --foreground:        #F2EADC; /* bone — warm white, never pure #fff */
+  --card:              #17130F;
+  --card-hover:        #1F1A14;
+  --border:            rgba(242, 234, 220, 0.10);
+  --border-focus:      #E0A94E;
+  --muted:             #1F1A14;
+  --muted-foreground:  rgba(242, 234, 220, 0.56);
+  --primary:           #E0A94E;
+  --primary-hover:     #ECC77F;
+  --ring:              #E0A94E;
+  --gold:              #E0A94E;
+  --gold-rgb:          224 169 78;
+  --gold-soft:         rgba(224, 169, 78, 0.12);
+  --gold-hairline:     rgba(224, 169, 78, 0.38);
+  --copper:            #C97B4A;
+  --input-bg:          #17130F;
+  --input-border:      rgba(242, 234, 220, 0.14);
+  --sidebar-bg:        rgba(12, 10, 9, 0.86);
+  --sidebar-border:    rgba(242, 234, 220, 0.08);
+  --header-bg:         rgba(12, 10, 9, 0.88);
+  --nav-bg:            rgba(12, 10, 9, 0.97);
+  --modal:             #201A14;
+  --modal-border:      rgba(242, 234, 220, 0.12);
+  --shadow-card:       0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-card-hover: 0 2px 6px 0 rgb(0 0 0 / 0.45), 0 22px 48px -18px rgb(0 0 0 / 0.6);
+  --shadow-sm:         0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-modal:      0 34px 80px -20px rgb(0 0 0 / 0.72), 0 0 0 1px rgb(242 234 220 / 0.06);
+  --grain-opacity:     0.05;
+}
+
+/* ── Base reset ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Chromium/WebKit paint autofilled inputs with their own opaque light-blue
+   fill (~#E8F0FE) that ignores background-color entirely — the only way to
+   override it is this inset box-shadow trick forcing the app's own input
+   surface back in, plus a huge transition delay so it does not flash blue
+   before settling. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  box-shadow: 0 0 0 1000px var(--input-bg, var(--card)) inset !important;
+  -webkit-text-fill-color: var(--foreground) !important;
+  transition: background-color 600000s ease-in-out 0s;
+}
+
+/* ── iOS focus zoom ──────────────────────────────────────────────────────
+   Safari on iOS zooms the whole page when a form control with a font-size below
+   16px is focused, and leaves the reader to pinch back out. Every input in the
+   app (sign-in/up, atlas and explore search, chat composer) has a smaller
+   desktop size, so the floor is raised to 16px on touch widths only; desktop
+   sizes are deliberate and desktop has no such behaviour. `!important` because
+   these sizes come from per-element Tailwind utilities, which this rule has to
+   beat without every call site having to remember. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+html {
+  /* No global `scroll-behavior: smooth`: it also applies to keyboard and
+   spacebar scrolling, which makes ordinary reading feel laggy. The places that
+   want an animated jump (back-to-top, anchors) pass `behavior: "smooth"` to
+   scrollTo themselves. */
+  -webkit-text-size-adjust: 100%;
+  --sat: env(safe-area-inset-top,    0px);
+  --sar: env(safe-area-inset-right,  0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left,   0px);
+
+  /* The height of the app chrome, declared once.
+
+   A full-height view (the chat) subtracts it from the viewport. These two
+   variables are the single source of truth: changing the masthead's rows means
+   changing them here, and every consumer follows.
+
+     --masthead-h : row 1 (h-14). Desktop adds the nav row (h-11).
+     --tabbar-h   : the bottom tab bar, which only exists below lg. */
+  --masthead-h: 3.5625rem; /* h-14 row + the header's 1px bottom border */
+  /* 58px of rows + the 1px border-top the bar draws. Leaving the border out
+     under-reserved the space by a pixel everywhere, and on /chat — whose
+     container is sized as 100dvh minus this value — that compounded into a
+     2px overlap with the bar. */
+  --tabbar-h: calc(59px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  html {
+    --masthead-h: 6.3125rem; /* 56 + 44 + 1px border = 101px */
+    --tabbar-h: 0px;
+  }
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Inter's open 4, 6 and 9 — worth having in a product whose pages are half
+   prices, ratings, altitudes and emergency numbers.
+
+   cv11 (the single-storey "a") is left out on purpose: it is a strong, quirky
+   letterform that pulls Inter toward a geometric/technical voice and away from
+   the serif it sits beside. These features only exist in the variable Inter
+   file, which is what the font request serves. */
+  font-feature-settings: "cv02", "cv03", "cv04";
+  text-rendering: optimizeLegibility;
+}
+
+/* Every display-weight heading is Literata. Its optical-size axis is driven
+   from the rendered size, so a 72px hero and a 21px country name are drawn as
+   genuinely different cuts rather than one outline scaled — the entire reason
+   for choosing a variable serif here.
+
+   `font-optical-sizing: auto` does that. Pinning `opsz` to 72 would ask every
+   heading for the display cut regardless of size: right on a hero (finer
+   hairlines, more thick/thin contrast) and brittle on a 21px list item, which is
+   what most of the atlas is. */
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  /* Heading tracking. Negative tracking corrects large type: the same -2% that
+   steadies a 72px line closes up a 21px one until the words start to touch. With
+   opsz live, the large cut brings its own tighter fit, so this blanket value only
+   has to cover the middle of the scale. Hero type does not rely on it: every h1
+   in the product carries a text-display-* utility whose preset bakes in its own
+   -0.02em to -0.035em and wins on specificity. */
+  letter-spacing: -0.011em;
+}
+h4, h5, h6 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 500;
+  letter-spacing: -0.006em;
+}
+
+/* Figures that sit in a column — prices, ratings, counts — are set tabular so
+   the column aligns and a changing value does not reflow its row. The typeface
+   is deliberately left alone: a monospaced face on every number would make the
+   app read as a dashboard rather than a magazine. */
+   `font-feature-settings: "tnum"` used to sit here beside the
+   font-variant-numeric line. It was redundant — and destructive, because
+   font-feature-settings replaces the inherited value rather than adding to
+   it, so every figure in the product silently lost the cv02/cv03/cv04 set
+   that body carries. The open 4, 6 and 9 turned back into the closed ones
+   on precisely the characters those variants exist for. font-variant-numeric
+   is the composing property and does the job on its own. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A data mark: an ISO code, a coordinate, an index numeral. Inter with
+   tabular figures and wider tracking gives the "this is a reading, not prose"
+   signal inside the family already on the page, with no third webfont. */
+.mono {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+/* Genuine monospace, for the one thing that actually needs character cells:
+   inline <code> in an assistant reply. System stack, so it costs nothing to
+   download and matches what the reader's other developer tools look like. */
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+::selection { background: var(--gold-soft); color: var(--foreground); }
+
+/* Every internally-scrolling panel gets momentum scrolling and no overscroll
+   bounce leaking into the page behind it. */
+.scroll-main, .overflow-y-auto, .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Focus is a gold hairline ring — visible on both canvases, and consistent
+   with the rule/hairline language the rest of the system uses. */
+:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
