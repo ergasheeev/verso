@@ -35,6 +35,7 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   reviews      Review[]
+  plan         UserPlan[]
 }
 
 model Location {
@@ -59,11 +60,23 @@ model Location {
   featured      Boolean    @default(false)
   createdAt     DateTime   @default(now())
   reviews       Review[]
+  userPlans     UserPlan[]
 
   @@index([city])
   @@index([category])
   @@index([featured])
   @@index([rating])
+}
+
+model UserPlan {
+  id         String   @id @default(cuid())
+  userId     String
+  locationId String
+  createdAt  DateTime @default(now())
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, locationId])
 }
 
 model Review {
