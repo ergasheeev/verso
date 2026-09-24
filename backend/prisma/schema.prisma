@@ -34,6 +34,7 @@ model User {
   preferences  String[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  reviews      Review[]
 }
 
 model Location {
@@ -57,11 +58,31 @@ model Location {
   duration      String?
   featured      Boolean    @default(false)
   createdAt     DateTime   @default(now())
+  reviews       Review[]
 
   @@index([city])
   @@index([category])
   @@index([featured])
   @@index([rating])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  locationId String
+  userId     String?
+  author     String
+  country    String   @default("🌍")
+  text       String
+  stars      Int
+  trustScore Int      @default(0)
+  aiTags     String[]
+  verified   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([locationId])
+  @@index([createdAt])
 }
 
 enum Category {
