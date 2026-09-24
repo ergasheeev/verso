@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 32" width="132" height="32" role="img" aria-label="Verso">
+  <!-- Wordmark for light surfaces: ink letterforms, gold mark. The gold is
+       the ramp's 700 step here — the signature #E0A94E drops to 1.9:1 on
+       paper and would read as a smudge. -->
+  <path d="M13.6 9.6 L2.8 6.9 V24.9 L13.6 27.6 Z" fill="#8A6224"/>
+  <path d="M15.4 9.6 L26.2 6.9 V24.9 L15.4 27.6 Z" fill="none" stroke="#8A6224" stroke-width="1.6" stroke-linejoin="round"/>
+  <text x="38" y="22.4"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="18.5" font-weight="400" letter-spacing="3.6"
+        fill="#16191F">VERSO</text>
+</svg>

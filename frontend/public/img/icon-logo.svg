@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Verso">
+  <!-- An open book seen at a slight angle. The left leaf — the verso — is
+       solid; the right leaf is drawn in outline. The asymmetry is the mark:
+       one page written, one still blank. -->
+  <path d="M15.1 9.6 L3.4 6.7 V25.2 L15.1 28.1 Z" fill="#E0A94E"/>
+  <path d="M16.9 9.6 L28.6 6.7 V25.2 L16.9 28.1 Z" fill="none" stroke="#E0A94E" stroke-width="1.7" stroke-linejoin="round"/>
+</svg>
