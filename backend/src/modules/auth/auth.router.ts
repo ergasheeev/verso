@@ -70,6 +70,12 @@ const forgotSchema = z.object({
   email: z.string().email(),
 });
 
+const resetSchema = z.object({
+  email:       z.string().email(),
+  code:        z.string().regex(/^\d{6}$/, "Kod 6 xonali bo'lishi kerak"),
+  newPassword: PASSWORD_RULE,
+});
+
 // ── POST /api/auth/register ────────────────────────────
 authRouter.post(
   "/register",
@@ -141,13 +147,24 @@ authRouter.post(
       const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
       let devCode: string | null = null;
-      // A password-less account (legacy Google sign-in) has nothing to reset, so
-      // it is skipped — but the response stays identical either way, since
-      // revealing "no account here" would let anyone probe registered addresses.
       if (user?.passwordHash) {
         devCode = await authService.issueVerificationCode(email, "PASSWORD_RESET");
       }
       sendSuccess(res, devCode ? { devCode } : null, "Agar bunday akkaunt mavjud bo'lsa, kod yuborildi");
+    } catch (err) { next(err); }
+  }
+);
+
+// ── POST /api/auth/reset-password ──────────────────────
+authRouter.post(
+  "/reset-password",
+  validateBody(resetSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, code, newPassword } = req.body as z.infer<typeof resetSchema>;
+      const result = await authService.resetPassword(email, code, newPassword);
+      setRefreshCookie(res, result.tokens.refreshToken);
+      sendSuccess(res, { user: result.user, accessToken: result.tokens.accessToken }, "Parol yangilandi");
     } catch (err) { next(err); }
   }
 );

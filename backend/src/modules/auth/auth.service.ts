@@ -57,8 +57,6 @@ export async function issueVerificationCode(
   return isDevWithoutMail ? code : null;
 }
 
-// Shared by verifyEmailCode and (later) resetPassword so an expiry or
-// attempt rule enforced in one but not the other can't be a silent hole.
 async function consumeCode(email: string, code: string, purpose: CodePurpose): Promise<void> {
   const record = await withRetry(() =>
     prisma.verificationCode.findFirst({
@@ -92,9 +90,6 @@ async function consumeCode(email: string, code: string, purpose: CodePurpose): P
   await withRetry(() => prisma.verificationCode.delete({ where: { id: record.id } }));
 }
 
-// Checks a submitted code and, on success, marks the account verified and
-// returns a session — verifying is the final step of registration, so the
-// user lands logged in rather than being bounced to a login form.
 export async function verifyEmailCode(
   email: string,
   code: string
@@ -115,6 +110,42 @@ export async function verifyEmailCode(
   );
 
   return { user: sanitize(verified), tokens };
+}
+
+// Completes a password reset: validates the emailed code, sets the new
+// password, and returns a fresh session.
+export async function resetPassword(
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<{ user: SafeUser; tokens: TokenPair }> {
+  const normalized = email.toLowerCase().trim();
+
+  await consumeCode(normalized, code, "PASSWORD_RESET");
+
+  const user = await withRetry(() => prisma.user.findUnique({ where: { email: normalized } }));
+  if (!user) throw createError("Foydalanuvchi topilmadi", 404);
+
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const tokens = buildTokens(user);
+
+  const updated = await withRetry(() =>
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        // Overwriting refreshToken invalidates every other signed-in
+        // device — if the reset happened because someone else had
+        // access, leaving their session alive would defeat the point.
+        refreshToken: tokens.refreshToken,
+        // Receiving the code proves control of the mailbox, which is
+        // exactly what verification attests to.
+        emailVerified: true,
+      },
+    })
+  );
+
+  return { user: sanitize(updated), tokens };
 }
 
 export interface RegisterDto {
