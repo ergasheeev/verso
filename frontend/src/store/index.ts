@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { User, Location } from "@/types";
+import type { Lang } from "@/i18n/translations";
 
 export interface Toast {
   id: string;
@@ -23,6 +24,10 @@ interface AppStore {
   removeFromPlan: (id: string) => void;
   isInPlan: (id: string) => boolean;
   clearPlan: () => void;
+
+  // Language (app-level, persisted, works for guests too)
+  lang: Lang;
+  setLang: (lang: Lang) => void;
 
   // Theme
   theme: "dark" | "light";
@@ -49,7 +54,12 @@ export const useAppStore = create<AppStore>()(
       user: null,
       isLoggedIn: false,
 
-      login: (user) => set({ user, isLoggedIn: true }),
+      login: (user) =>
+        set((state) => ({
+          user,
+          isLoggedIn: true,
+          lang: (user.lang as Lang) ?? state.lang,
+        })),
 
       logout: () => set({ user: null, isLoggedIn: false, plan: [] }),
 
@@ -74,6 +84,15 @@ export const useAppStore = create<AppStore>()(
 
       clearPlan: () => set({ plan: [] }),
 
+      // ── Language ──────────────────────────────────────
+      lang: "en",
+
+      setLang: (lang) =>
+        set((state) => ({
+          lang,
+          user: state.user ? { ...state.user, lang } : null,
+        })),
+
       // ── Theme ─────────────────────────────────────────
       theme: "dark",
 
@@ -93,13 +112,9 @@ export const useAppStore = create<AppStore>()(
       toasts: [],
 
       showToast: (message, icon, type = "success") => {
-        // A rapid run of clicks with the SAME message must not stack a pile
-        // of toasts, each with its own timer. If already showing, no-op.
         const alreadyShowing = get().toasts.some((t) => t.message === message);
         if (alreadyShowing) return;
 
-        // Date.now() alone collides when two toasts fire in the same
-        // millisecond — a random suffix keeps the key unique.
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set((state) => {
           const next = [...state.toasts, { id, message, icon, type }];
@@ -114,13 +129,22 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
     }),
     {
-      name: "verso-v1",
+      name: "trova-v1",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
         plan: state.plan,
         theme: state.theme,
+        lang: state.lang,
       }),
+      // Bumping this version forces a one-time migration, resetting the
+      // persisted language to the current default.
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = persisted as { lang?: Lang };
+        if (version < 1) state.lang = "en";
+        return state;
+      },
       // `user` is persisted but `isLoggedIn` deliberately is not — a stale
       // `true` surviving a failed logout would be a security-relevant lie.
       // It is derived from the restored `user` on rehydrate instead.
