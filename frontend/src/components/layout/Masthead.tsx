@@ -4,7 +4,9 @@ import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
 import { Wordmark, Mark } from "@/components/brand/Wordmark";
 import { PremiumSeal } from "@/components/ui/editorial";
+import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { useAppStore } from "@/store";
+import { useTranslation } from "@/i18n";
 
 /**
  * The masthead.
@@ -18,10 +20,10 @@ import { useAppStore } from "@/store";
  */
 
 const NAV = [
-  { route: "/atlas",     label: "Atlas" },
-  { route: "/locations", label: "Joylar" },
-  { route: "/community", label: "Hamjamiyat" },
-  { route: "/saved",     label: "Saqlangan" },
+  { route: "/atlas",     key: "atlas" },
+  { route: "/locations", key: "locations" },
+  { route: "/community", key: "community" },
+  { route: "/saved",     key: "saved" },
 ] as const;
 
 const CTRL =
@@ -38,6 +40,7 @@ export function Masthead() {
   const toggleTheme = useAppStore((s) => s.toggleTheme);
   const openAuthModal = useAppStore((s) => s.openAuthModal);
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
+  const { t } = useTranslation();
 
   const isActive = (route: string) =>
     pathname === route ||
@@ -49,7 +52,7 @@ export function Masthead() {
       <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-8 lg:px-12 h-14">
         <button
           onClick={() => navigate("/")}
-          aria-label="Bosh sahifa"
+          aria-label={t("nav", "home")}
           className="tap-44 shrink-0 active:opacity-60 transition-opacity"
         >
           <Wordmark size="md" />
@@ -61,16 +64,23 @@ export function Masthead() {
           <button
             onClick={() => setSearchOpen(true)}
             className={cn(CTRL, "border-[var(--border)]")}
-            aria-label="Qidirish"
+            aria-label={t("locations", "search_placeholder")}
             title="Ctrl K"
           >
             <Search className="w-4 h-4" aria-hidden />
           </button>
 
+          <div className="sm:hidden">
+            <LanguageSwitcher compact />
+          </div>
+          <div className="hidden sm:block">
+            <LanguageSwitcher />
+          </div>
+
           <button
             onClick={toggleTheme}
             className={cn(CTRL, "hidden sm:flex")}
-            aria-label={theme === "dark" ? "Kunduzgi mavzu" : "Tungi mavzu"}
+            aria-label={theme === "dark" ? t("profile", "theme_light") : t("profile", "theme_dark")}
           >
             {theme === "dark" ? <Sun className="w-4 h-4" aria-hidden /> : <Moon className="w-4 h-4" aria-hidden />}
           </button>
@@ -78,7 +88,7 @@ export function Masthead() {
           <button
             onClick={() => navigate("/saved")}
             className={cn(CTRL, "relative", planCount > 0 && "text-accent")}
-            aria-label={`${planCount} saqlangan joy`}
+            aria-label={`${planCount} ${t("profile", "plan_count_suffix")}`}
           >
             <Bookmark className="w-4 h-4" aria-hidden />
             {planCount > 0 && (
@@ -94,7 +104,7 @@ export function Masthead() {
             <button
               onClick={() => navigate("/pro")}
               className="tap-44 hidden sm:inline-flex items-center justify-center ml-1 h-9"
-              aria-label="Pro"
+              aria-label={t("nav", "pro")}
             >
               <PremiumSeal />
             </button>
@@ -104,31 +114,31 @@ export function Masthead() {
             <button
               onClick={() => navigate("/profile")}
               className="tap-44 ml-1.5 shrink-0 active:opacity-70 transition-opacity"
-              aria-label="Profil"
+              aria-label={t("nav", "profile")}
             >
               <Avatar name={user.name} avatarUrl={user.avatarUrl} size={32} />
             </button>
           ) : (
             <button
               onClick={() => openAuthModal()}
-              aria-label="Kirish"
+              aria-label={t("auth", "login")}
               className="ml-1 sm:ml-1.5 shrink-0 w-11 sm:w-auto h-11 sm:h-9 sm:px-4 rounded-sm
                          flex items-center justify-center bg-gold-400 text-[#0C0A09]
                          text-[11px] font-medium uppercase tracking-[0.1em]
                          hover:bg-gold-300 transition-colors duration-400"
             >
               <LogIn className="w-4 h-4 sm:hidden" aria-hidden />
-              <span className="hidden sm:inline">Kirish</span>
+              <span className="hidden sm:inline">{t("auth", "login")}</span>
             </button>
           )}
         </div>
       </div>
 
       <nav
-        aria-label="Asosiy navigatsiya"
+        aria-label={t("nav", "primary")}
         className="hidden lg:flex items-center gap-8 px-12 h-11 border-t border-[var(--border)]"
       >
-        {NAV.map(({ route, label }) => {
+        {NAV.map(({ route, key }) => {
           const active = isActive(route);
           return (
             <button
@@ -143,9 +153,9 @@ export function Masthead() {
                   active ? "text-ink" : "text-subtle group-hover:text-ink",
                 )}
               >
-                {label}
+                {t("nav", key)}
               </span>
-              {route === "/saved" && planCount > 0 && (
+              {key === "saved" && planCount > 0 && (
                 <span className="ml-1.5 tabular text-[11px] text-subtle">{planCount}</span>
               )}
               <span
@@ -171,7 +181,7 @@ export function Masthead() {
           )}
         >
           <Mark className="w-4 h-4" />
-          <span className="font-display text-[15px]">Verso AI</span>
+          <span className="font-display text-[15px]">{t("chat", "title")}</span>
           <span
             aria-hidden
             className={cn(

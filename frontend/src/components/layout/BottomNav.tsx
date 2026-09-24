@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Globe, MapPin, Sparkles, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 
 const SPRING = { type: "spring" as const, stiffness: 320, damping: 36 };
 
@@ -13,18 +14,10 @@ const SPRING = { type: "spring" as const, stiffness: 320, damping: 36 };
  * as an app. The rule slides between tabs as a shared layout element, which
  * is the one place motion earns its keep down here.
  */
-
-const TABS = [
-  { route: "/atlas",     Icon: Globe,    label: "Atlas" },
-  { route: "/locations", Icon: MapPin,   label: "Joylar" },
-  { route: "/community", Icon: Users,    label: "Hamjamiyat" },
-  { route: "/chat",      Icon: Sparkles, label: "AI" },
-  { route: "/profile",   Icon: User,     label: "Profil" },
-] as const;
-
 export function BottomNav() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { t } = useTranslation();
 
   function isActive(route: string) {
     if (route === "/atlas") return pathname === "/atlas" || pathname.startsWith("/c/");
@@ -32,9 +25,17 @@ export function BottomNav() {
     return pathname === route || pathname.startsWith(route + "/");
   }
 
+  const TABS = [
+    { route: "/atlas",     Icon: Globe,    label: t("nav", "atlas")     },
+    { route: "/locations", Icon: MapPin,   label: t("nav", "locations") },
+    { route: "/community", Icon: Users,    label: t("nav", "tab_community") },
+    { route: "/chat",      Icon: Sparkles, label: t("nav", "ai")        },
+    { route: "/profile",   Icon: User,     label: t("nav", "profile")   },
+  ] as const;
+
   return (
     <nav
-      aria-label="Asosiy navigatsiya"
+      aria-label={t("nav", "primary")}
       className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--nav-bg)] border-t border-[var(--border)] glass"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
