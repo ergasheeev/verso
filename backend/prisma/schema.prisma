@@ -38,6 +38,32 @@ model User {
   plan         UserPlan[]
 }
 
+enum CodePurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  // The code is stored hashed, never in plaintext — a database leak
+  // shouldn't hand over live codes. Short TTL + the attempts cap below
+  // cover the fact that a 6-digit space is small enough to brute-force
+  // offline if the hash alone were the only defence.
+  codeHash  String
+  // Codes are scoped to what they were issued for. Without this, a code
+  // emailed as "confirm your address" could be replayed against the
+  // password-reset endpoint — same secret, but the user was never shown
+  // a prompt implying it could change their password. Every lookup
+  // filters on this, so the two flows share no codes.
+  purpose   CodePurpose @default(EMAIL_VERIFY)
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([email, purpose])
+}
+
 model Location {
   id            String     @id @default(cuid())
   name          String
