@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  surname      String
+  email        String     @unique
+  // Optional: an account created through the retired Google sign-in has no
+  // password to hash. Email/password registration always sets this, and the
+  // login flow's bcrypt.compare guards against a null for those accounts
+  // (see auth.service.ts).
+  passwordHash String?
+  // Only ever set by the retired Google sign-in. Dropping the column would
+  // be a destructive migration for no benefit, and the rows that carry it
+  // still have to be valid.
+  googleId     String?    @unique
+  country      String     @default("")
+  lang         String     @default("uz")
+  // A resized JPEG data URL (client compresses to ~256px/~150KB before
+  // upload), not a file path — there is no object storage (S3/Cloudinary)
+  // wired up yet, so the image lives in the row itself rather than adding
+  // an external dependency for one small photo. @db.Text because the
+  // default varchar column would truncate a data URL past 191 chars.
+  avatarUrl    String?    @db.Text
+  isPremium    Boolean    @default(false)
+  refreshToken String?
+  preferences  String[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
