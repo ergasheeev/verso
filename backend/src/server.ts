@@ -5,6 +5,7 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 
 import { env } from "@/config/env";
+import { connectDatabase } from "@/config/database";
 import { errorHandler } from "@/middleware/error-handler";
 import { sendError } from "@/utils/response";
 
@@ -69,6 +70,8 @@ app.use(errorHandler);
 
 // ── Bootstrap ─────────────────────────────────────────
 async function bootstrap(): Promise<void> {
+  await connectDatabase();
+
   const port = Number(env.PORT);
   app.listen(port, () => {
     console.log(`🚀  Server running on http://localhost:${port}`);
