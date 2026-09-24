@@ -60,6 +60,11 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// ── API Routes ────────────────────────────────────────
+import { authRouter } from "@/modules/auth/auth.router";
+
+app.use("/api/auth", authRouter);
+
 // ── 404 handler ───────────────────────────────────────
 app.use((_req, res) => {
   sendError(res, "Route not found", 404);
