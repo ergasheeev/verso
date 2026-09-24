@@ -1,0 +1,35 @@
+// A_countries/europe/hu.ts — VENGRIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const HU = {
+  code: "HU",
+  name: "Hungary",
+  slug: 'hungary',
+  summary: "Vengriya — Dunay daryosi bo'yida joylashgan Budapesht o'z me'moriy go'zalligi bilan Yevropaning eng chiroyli poytaxtlaridan biriga kiradi: Parlament binosi kechqurun yoritilganda suv yuzasida aks etgan manzara nafasni rostlab qo'yadi. Gerxert hammom kompleksida issiq mineral suvda cho'milish, Ruin bar madaniyatida odatiy Yevropadan boshqacha kechani o'tkazish, Eger qal'asida o'rta asrlar ruhini his qilish — Vengriyaning har bir burchagi boshqacha taklif qiladi. Tokaj uzum mintaqasi YUNESKO ro'yxatida, Balatongol esa Markaziy Yevropaning eng katta ko'li.",
+  tagline: "Dunay bo'yidagi oltin Budapesht va issiqqina mineral suvlar.",
+  bestSeason: "May-June (Balatongol fasli ochilmoqda, Budapesht gullab yashnagan), August-September (Sziget festival, issiq yoz, Tokaj uzum yig'imi boshlanishi)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Budapest",
+  continent: 'Europe',
+  lat: 47.4979,
+  lng: 19.0402,
+  population: '9.7 million',
+  area: '93 028 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+36',
+  currency: 'HUF',
+  currencyName: "Venger forinti",
+  languages: ['Hungarian'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 2,
+  safetyRating: 4,
+  topCities: ['Budapest', 'Debrecen', 'Pécs', 'Győr', 'Eger'],
+  cuisine: ['goulash', 'lángos', 'chimney cake', 'chicken paprikash', 'Tokaj wine'],
+  unesco: 8,
+  emergency: { police: '107', ambulance: '104', fire: '105', general: '112' },
+  flag: '🇭🇺',
+  featured: true,
+};

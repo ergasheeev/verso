@@ -1,0 +1,35 @@
+// A_countries/europe/gb.ts — BUYUK BRITANIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const GB = {
+  code: "GB",
+  name: "United Kingdom",
+  slug: 'united-kingdom',
+  summary: "Buyuk Britaniya — imperiya merosi va zamonaviy multikultural jamiyat o'rtasida o'ziga xos balansni saqlayotgan mamlakat. London dunyo moliya va madaniyat markazlaridan biri: British Museum, Tate Modern va teatrlar kvadrati West End bitta shaharda. Shotlandiyaning tog'li Highlands mintaqasi, Uelsdagi qadimiy qal'alar, Shimoliy Irlandiyadagi Giant's Causeway — har bir o'lka alohida xarakter taklif etadi. Pub madaniyati, choy ichish an'analari va qirollik marosimlari hali ham jonli.",
+  tagline: "Qirollik an'anasi va kosmopolit ruhning noyob uyg'unligi.",
+  bestSeason: "May-June (eng uzun kun soatlari, yashil landshaftlar, Chelsi Gul ko'rgazmasi), August-September (Edinburgh festivallari, qulay harorat, kam yomg'ir)",
+  visaNote:
+    "O'zbekiston pasporti: UK viza (Schengen emas), elchixona orqali. EU pasporti: Brexit dan keyin ETA talab etiladi.",
+  visaCheckedOn: '2026-09',
+  capital: "London",
+  continent: 'Europe',
+  lat: 51.5074,
+  lng: -0.1278,
+  population: '67.6 million',
+  area: '242 495 km²',
+  timezone: 'UTC+0 (GMT)',
+  callingCode: '+44',
+  currency: 'GBP',
+  currencyName: "Britaniya funt sterlingi",
+  languages: ['English', 'Welsh', 'Scottish Gaelic'],
+  plugType: 'G (230V)',
+  drivingSide: 'left',
+  priceLevel: 5,
+  safetyRating: 4,
+  topCities: ['London', 'Edinburgh', 'Manchester', 'Birmingham', 'Bristol'],
+  cuisine: ['fish and chips', 'full English breakfast', 'Sunday roast', 'scones', 'haggis'],
+  unesco: 33,
+  emergency: { police: '999', ambulance: '999', fire: '999', general: '112' },
+  flag: '🇬🇧',
+  featured: true,
+};

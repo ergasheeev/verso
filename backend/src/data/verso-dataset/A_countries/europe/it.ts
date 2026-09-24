@@ -1,0 +1,35 @@
+// A_countries/europe/it.ts — ITALIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const IT = {
+  code: "IT",
+  name: "Italy",
+  slug: 'italy',
+  summary: "Italiya — antik Rim xarobalari, Uyg'onish davri san'ati va zamonaviy moda bir-biridan ajralmas holda yashab kelayotgan mamlakat. Rim Kolizeyidan boshlab Florensiya Uffizi galereyasigacha, Venetsiya kanallaridan Sitsiliya normanlar qal'alarigacha — har bir mintaqa o'zining alohida madaniyati va lahjasi bilan ajralib turadi. Italyan oshxonasi dunyoda eng nufuzlisi sanaladi: pizza Neapeldan, pasta Bologna dan, gelato Firenzeden chiqqan. Amalfi sohili va Toskana tepaliklarida motosikl yoki velosiped bilan sayr qilish — unutilmas taassurot.",
+  tagline: "Har tosh osti ostida tarix, har liqa ostida lazzat.",
+  bestSeason: "April-May (gul fasli, kuchli issiq yo'q, Rim va Florensiyada olomon yoqimli), September-October (uzum terimi, dengiz hali iliq, yuqori sezon tugagan)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Rome",
+  continent: 'Europe',
+  lat: 41.9028,
+  lng: 12.4964,
+  population: '59.1 million',
+  area: '301 340 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+39',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['Italian'],
+  plugType: 'F, L (220V)',
+  drivingSide: 'right',
+  priceLevel: 3,
+  safetyRating: 4,
+  topCities: ['Rome', 'Milan', 'Florence', 'Venice', 'Naples'],
+  cuisine: ['pizza', 'pasta', 'gelato', 'risotto', 'tiramisu'],
+  unesco: 58,
+  emergency: { police: '113', ambulance: '118', fire: '115', general: '112' },
+  flag: '🇮🇹',
+  featured: true,
+};

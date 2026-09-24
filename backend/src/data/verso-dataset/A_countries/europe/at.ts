@@ -1,0 +1,35 @@
+// A_countries/europe/at.ts — AVSTRIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const AT = {
+  code: "AT",
+  name: "Austria",
+  slug: 'austria',
+  summary: "Avstriya — Gabsburglar imperiyasining ulug'vorligi hali ham Vena opera teatri, Shonbrunn saroyi va Xofburg arkadalarida aniq seziladi. Ammo mamlakat faqat saroy va klassik musiqadan iborat emas: Salzburg Mozart vatani sifatida yil bo'yi musiqa bilan to'lib-toshadi, Innsbruck Alp og'ushida joylashgan, Hallstatt esa ko'l bo'yidagi ertakdek manzarasi bilan Instagram ikonasiga aylangan. Avstriya oshxonasi Vena shnitselidan boshlab Sachertorte tortiga qadar o'ziga xos va to'yimli. Ski kurortlari Yevropada Sankt Morits va Verbier bilan raqobatlashadi.",
+  tagline: "Klassik musiqa va Alp tog'lari uyg'unlashgan imperiya.",
+  bestSeason: "April-May (Vena gullab-yashnaydi, turist shovqini mo'tadil), December (Boʻronli Boʻron Vena Rojdestvo bozorlari, Avstriyaning sehrli qishi boshlanadi)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Vienna",
+  continent: 'Europe',
+  lat: 48.2082,
+  lng: 16.3738,
+  population: '9.1 million',
+  area: '83 871 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+43',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['German'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 4,
+  safetyRating: 5,
+  topCities: ['Vienna', 'Salzburg', 'Innsbruck', 'Graz', 'Hallstatt'],
+  cuisine: ['Wiener Schnitzel', 'Sachertorte', 'Tafelspitz', 'Apfelstrudel', 'Kaiserschmarrn'],
+  unesco: 12,
+  emergency: { police: '133', ambulance: '144', fire: '122', general: '112' },
+  flag: '🇦🇹',
+  featured: true,
+};

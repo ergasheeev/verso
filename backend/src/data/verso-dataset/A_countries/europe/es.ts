@@ -1,0 +1,35 @@
+// A_countries/europe/es.ts — ISPANIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const ES = {
+  code: "ES",
+  name: "Spain",
+  slug: 'spain',
+  summary: "Ispaniya — Evropada eng xilma-xil mamlakatlardan biri: Kataloniya o'zining mustaqil ruhini saqlab, Andaluziya flamenkosi va Moorlar me'morchiligi bilan sehrlaydi, Balear orollari esa Yer O'rtadengizdagi eng go'zal qo'ltiqlardan birini taklif etadi. Barselonada Gaudining Sagrada Familia hali qurilishda, ammo allaqachon ikonaga aylangan. Madridda Prado muzeyi roppa-rosa uch soatga yaroqli. San Sebastyanda tapas va pintxos dunyoning eng nufuzli oshxona yo'nalishlaridan biriga aylanib bo'lgan.",
+  tagline: "Flamenko tebranishi va Yer O'rtadenginz ishi biri bu yerda.",
+  bestSeason: "April-May (Andaluziya gullaydi, issiq boshlanmagan, Semana Santa bayramlari), September-October (dengiz hali iliq, turistlar kamaygan, fiestalari davom etadi)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Madrid",
+  continent: 'Europe',
+  lat: 40.4168,
+  lng: -3.7038,
+  population: '47.4 million',
+  area: '505 990 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+34',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['Spanish', 'Catalan', 'Galician', 'Basque'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 3,
+  safetyRating: 4,
+  topCities: ['Madrid', 'Barcelona', 'Seville', 'Valencia', 'San Sebastián'],
+  cuisine: ['paella', 'tapas', 'jamón ibérico', 'gazpacho', 'churros'],
+  unesco: 50,
+  emergency: { police: '091', ambulance: '061', fire: '080', general: '112' },
+  flag: '🇪🇸',
+  featured: true,
+};

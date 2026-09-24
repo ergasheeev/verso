@@ -1,0 +1,35 @@
+// A_countries/europe/hr.ts — XORVATIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const HR = {
+  code: "HR",
+  name: "Croatia",
+  slug: 'croatia',
+  summary: "Xorvatiya — Adriatika dengizining eng go'zal sohillaridan biriga ega bo'lgan, Dalmatiya qirg'og'ida antik shaharlar dengiz bilan uyg'un yashab kelayotgan mamlakat. Dubrovnik \"Taxtlar o'yini\" serialini ko'rgan hammasiga tanish, ammo u shu serialdan ham ulug'vorligi saqlanib qolgan. Plitvitsa ko'llari milliy bog'i ketma-ket sharsharalar tizimi bilan tabiatning qo'li bilan yaratilgan mo'jizaga o'xshaydi. Xvar, Brač va Korčula orollari Yer O'rta dengizidagi eng chiroyli orollar orasida tilga olinadi. Truffles, dengiz mahsulotlari va mahalliy sharob bu yerda maxsus maqomga ega.",
+  tagline: "Adriatika ko'ki va qadimiy shahar devorlari uyg'un nafas.",
+  bestSeason: "May-June (dengiz tozaligida, orollar hali bo'sh, Dubrovnik tinch), September-October (dengiz iliq, turist kamaygan, narxlar pasaygan)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Zagreb",
+  continent: 'Europe',
+  lat: 45.815,
+  lng: 15.9819,
+  population: '3.9 million',
+  area: '56 594 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+385',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['Croatian'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 3,
+  safetyRating: 5,
+  topCities: ['Zagreb', 'Dubrovnik', 'Split', 'Hvar', 'Rovinj'],
+  cuisine: ['peka', 'black risotto', 'štrukli', 'prstaci', 'truffle pasta'],
+  unesco: 10,
+  emergency: { police: '192', ambulance: '194', fire: '193', general: '112' },
+  flag: '🇭🇷',
+  featured: true,
+};

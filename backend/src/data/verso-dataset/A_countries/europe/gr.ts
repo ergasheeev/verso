@@ -1,0 +1,35 @@
+// A_countries/europe/gr.ts — GRETSIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const GR = {
+  code: "GR",
+  name: "Greece",
+  slug: 'greece',
+  summary: "Gretsiya — G'arbiy sivilizatsiyasining beshigi, ammo bu yerda tarix muzeyda emas, ko'cha toshlari orasida, dengiz bo'yida mazali ouzo simirib o'tirganingizda yashaydi. Afina Akropolisidan Santorini orolining ko'k-oq qubbalarigacha, Delphi bashorat joylaridan Kriti Minoy saraylarigacha — mamlakat qatlamlari cheksiz. Egey dengizining 6000 dan ortiq oroli har birida o'zining xarakteri: Mikonos shovqinli bo'lsa, Ydra avtomobilsiz tinch, Rodos esa o'rta asr devorlarini asrashda davom etmoqda. Grek taomi — eng sodda ingredientlardan eng to'yimli va mazali narsalarni yaratish san'ati.",
+  tagline: "Antik dunyo va ko'k dengizning bitmas-tuganmas sehri.",
+  bestSeason: "May-June (dengiz isiyapti, olomon yo'q, orol transporti ishlaydi), September-October (eng issiq dengiz, yoz olamidan xoli, narxlar pasaygan)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Athens",
+  continent: 'Europe',
+  lat: 37.9838,
+  lng: 23.7275,
+  population: '10.4 million',
+  area: '131 957 km²',
+  timezone: 'UTC+2 (EET)',
+  callingCode: '+30',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['Greek'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 2,
+  safetyRating: 4,
+  topCities: ['Athens', 'Thessaloniki', 'Heraklion', 'Rhodes', 'Santorini'],
+  cuisine: ['moussaka', 'souvlaki', 'spanakopita', 'baklava', 'tzatziki'],
+  unesco: 19,
+  emergency: { police: '100', ambulance: '166', fire: '199', general: '112' },
+  flag: '🇬🇷',
+  featured: true,
+};

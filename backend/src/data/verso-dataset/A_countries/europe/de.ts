@@ -1,0 +1,35 @@
+// A_countries/europe/de.ts — GERMANIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const DE = {
+  code: "DE",
+  name: "Germany",
+  slug: 'germany',
+  summary: "Germaniya — tartib va erkinlik, industriya va san'at, qadimgi qal'alar va ultramodern arxitektura o'ziga xos muvozanatda birga yashaydi. Bavariya Alplarida Neuschwanstein qal'asi ertak manzarasini eslatsa, Berlin devordan keyin dunioga ochilgan ijodiy markaz sifatida o'z tarixini qayta yozmoqda. Reydan bo'ylab uzum bog'lari orasida qo'chqarlikni his qilish, Oktoberfest shovqinida pivo qadah ko'tarish yoki Shvartsvald o'rmonlarida uzoq piyoda yurish — Germaniya har bir sayohatchi uchun o'z tilini topadi. Infrastruktura mukammal, transport tizimi ishonchli, ingliz tili keng tarqalgan.",
+  tagline: "Samaradorlik va romantika o'rtasidagi kuchli balans.",
+  bestSeason: "May-June (gullagan o'tloqlar, yoqimli harorat, turist olami boshlangan), September-October (Oktoberfest, Reyda uzum terimi, oltin kuz ranglari)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Berlin",
+  continent: 'Europe',
+  lat: 52.52,
+  lng: 13.405,
+  population: '84.4 million',
+  area: '357 114 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+49',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['German'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 3,
+  safetyRating: 5,
+  topCities: ['Berlin', 'Munich', 'Hamburg', 'Frankfurt', 'Cologne'],
+  cuisine: ['bratwurst', 'sauerkraut', 'pretzel', 'schnitzel', 'Black Forest cake'],
+  unesco: 53,
+  emergency: { police: '110', ambulance: '112', fire: '112', general: '112' },
+  flag: '🇩🇪',
+  featured: true,
+};

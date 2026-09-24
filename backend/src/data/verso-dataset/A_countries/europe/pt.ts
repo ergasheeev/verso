@@ -1,0 +1,35 @@
+// A_countries/europe/pt.ts — PORTUGALIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const PT = {
+  code: "PT",
+  name: "Portugal",
+  slug: 'portugal',
+  summary: "Portugaliya — G'arbiy Yevropaning eng arzon va eng hissiyotli mamlakatlaridan biri. Lissabonda tram bilan tepaliklar orasida kezish, Porto ko'chalarida fado kuylashini tinglash, Douro vodiysi bo'ylab sharob daryosida suzish — bularning barchasi kutilmagandan chuqur taassurot qoldiradi. Sintra saroylari o'rmonlar og'ushida romantikani boshqa darajaga olib chiqadi, Algarve sohillari Atlantika toshlarida Yevropaning eng go'zal plajlaridan birini tashkil etadi. Pastel de nata va bacalhau (tuzlangan baliq) yuz xil tarzda tayyorlanishi — oshxona xilma-xilligini ko'rsatadi.",
+  tagline: "Fado melancholine va Atlantika shamolining g'aroyib.",
+  bestSeason: "May-June (qulay harorat, gullagan Douro vodiysi, ommaviy turizm boshlanmagan), September-October (Algarve da issiq dengiz, Lisboa festivallar fasli, narxlar pasaygan)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Lisbon",
+  continent: 'Europe',
+  lat: 38.7169,
+  lng: -9.1395,
+  population: '10.3 million',
+  area: '92 212 km²',
+  timezone: 'UTC+0 (WET)',
+  callingCode: '+351',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['Portuguese'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 2,
+  safetyRating: 5,
+  topCities: ['Lisbon', 'Porto', 'Sintra', 'Faro', 'Braga'],
+  cuisine: ['pastel de nata', 'bacalhau', 'francesinha', 'caldo verde', 'piri-piri chicken'],
+  unesco: 17,
+  emergency: { police: '112', ambulance: '112', fire: '112', general: '112' },
+  flag: '🇵🇹',
+  featured: true,
+};

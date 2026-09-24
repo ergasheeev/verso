@@ -1,0 +1,35 @@
+// A_countries/europe/no.ts — NORVEGIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const NO = {
+  code: "NO",
+  name: "Norway",
+  slug: 'norway',
+  summary: "Norvegiya — shim olida tabiat o'z eng dramatik ko'rinishini namoyon etadi: Geirangerfjord va Naeroyfjord YUNESKO ro'yxatida, Lofoten orollari ko'llar va tog'larni birlashtirgan manzarada baliq ovlash qishloqlari bilan bezangan. Shimoliy Yoritqichlari — Arktika osmonida o'ynagan jonli yorug'lik shousi — insonni o'z kichikligiga va tabiatning ulug'vorligiga bir lahzada ishontiradi. Bergen Hanzalik bozorlaridan saqlanib qolgan kayvon uy qatorlari bilan Yevropada kamdan-kam uchraydigan atmosfera taqdim etadi.",
+  tagline: "Fjordlar va Shimoliy Yorug'lik.",
+  bestSeason: "June-August (fjordlarni kemada kezish, uzun kunduz soatlari, suv harorati yoqimli), January-March (Tromsø va Lofotenda Shimoliy Yoritqichlar fasli eng pik davrida)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Oslo",
+  continent: 'Europe',
+  lat: 59.9139,
+  lng: 10.7522,
+  population: '5.5 million',
+  area: '385 207 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+47',
+  currency: 'NOK',
+  currencyName: "Norvegiya kronasi",
+  languages: ['Norwegian'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 5,
+  safetyRating: 5,
+  topCities: ['Oslo', 'Bergen', 'Tromsø', 'Stavanger', 'Ålesund'],
+  cuisine: ['salmon', 'lutefisk', 'rakfisk', 'raspeballer', 'brunost'],
+  unesco: 8,
+  emergency: { police: '112', ambulance: '113', fire: '110', general: '112' },
+  flag: '🇳🇴',
+  featured: true,
+};

@@ -1,0 +1,35 @@
+// A_countries/europe/nl.ts — NIDERLANDIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const NL = {
+  code: "NL",
+  name: "Netherlands",
+  slug: 'netherlands',
+  summary: "Niderlandiya — dengiz sathidan past joylashgan, lekin ruhiy balandligi nihoyatda yuqori mamlakat. Amsterdam kanallarida qayiq suzish, Keukenhof lola bog'larida adashish, Rotterdam avangard me'morchiligida hayron qolish — bularning barchasi velosiped g'ildiragi ostida yuz beradi. Niderlandiyaliklarning ingliz tili darajasi Yevropada eng yuqori, bu sayohatni favqulodda qulaylashtiradi. Van Gogh muzeyi, Reyksmuseum va Anne Frank uyi Amsterdamda katta navbatni talab etadi — oldindan bron qilish shart.",
+  tagline: "Kanallar, lolalar va erkinlik falsafasi uyg'unlashgan joy.",
+  bestSeason: "April-May (Keukenhof lola fasli, bahor harorati yoqimli, dam olish kayfiyati), June-August (uzoq kunduzgi soatlar, ko'plab festival va bozorlar faol)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Amsterdam",
+  continent: 'Europe',
+  lat: 52.3676,
+  lng: 4.9041,
+  population: '17.9 million',
+  area: '41 543 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+31',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['Dutch'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 4,
+  safetyRating: 5,
+  topCities: ['Amsterdam', 'Rotterdam', 'The Hague', 'Utrecht', 'Eindhoven'],
+  cuisine: ['stroopwafel', 'herring', 'stamppot', 'poffertjes', 'gouda cheese'],
+  unesco: 13,
+  emergency: { police: '0900-8844', ambulance: '112', fire: '112', general: '112' },
+  flag: '🇳🇱',
+  featured: true,
+};

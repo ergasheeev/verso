@@ -1,0 +1,35 @@
+// A_countries/europe/cz.ts — CHEXIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const CZ = {
+  code: "CZ",
+  name: "Czech Republic",
+  slug: 'czech-republic',
+  summary: "Chexiya — Markaziy Yevropaning eng yaxshi saqlanib qolgan gotik va barokko arxitekturasiga ega mamlakatlaridan biri. Praga suv omborining ko'rinishi ko'pgina boshqa shaharlar orzu qilsa arzigulik: Karlov ko'prigi, Praga qal'asi va Staro Mesto maydoni birgalikda Yevropaning eng fotogenik shahar manzarasini tashkil etadi. Chesk Krumlov esa mahalliy turizm sohasidagi ajoyib topilma — kichik shaharcha, ulkan qal'a va tiniq daryo. Pivo (pivo) madaniyati hayotning bir qismi — Chexiya dunyoda boshiga eng ko'p pivo iste'mol qilinadigan mamlakat.",
+  tagline: "Gotik minoralar va oltin Praga — o'rta asrlar tirik shahar.",
+  bestSeason: "May-June (Praga gullagan bog'larda, festival fasli boshlanmoqda, harorat qulay), August-September (uzum festivallari, yoz avjida, ko'chalar jonli ammo chidamli)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Prague",
+  continent: 'Europe',
+  lat: 50.0755,
+  lng: 14.4378,
+  population: '10.9 million',
+  area: '78 867 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+420',
+  currency: 'CZK',
+  currencyName: "Chex kronasi",
+  languages: ['Czech'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 2,
+  safetyRating: 5,
+  topCities: ['Prague', 'Brno', 'Ostrava', 'Český Krumlov', 'Olomouc'],
+  cuisine: ['svíčková', 'goulash', 'trdelník', 'smažený sýr', 'Czech beer'],
+  unesco: 17,
+  emergency: { police: '158', ambulance: '155', fire: '150', general: '112' },
+  flag: '🇨🇿',
+  featured: true,
+};

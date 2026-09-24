@@ -1,0 +1,35 @@
+// A_countries/europe/fr.ts — FRANSIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const FR = {
+  code: "FR",
+  name: "France",
+  slug: 'france',
+  summary: "Fransiya — san'at, gastronomi va tarix bir-biriga shu qadar uyg'un tarzda qo'shilgan mamlakatki, har bir burchak o'z hikoyasini aytib turadi. Parij Eyfel minorasidan Luvr zallarigacha dunyoning eng ko'p tashrif buyuriladigan shahri sifatida o'z taxtini saqlab kelmoqda. Provans lavanda dalalari, Bordeaux uzum bog'lari, Normandiya qal'alari va Rivyera plajlari — bularning barchasi bitta mamlakatda. Fransuz oshxonasi YUNESKO madaniy merosi ro'yxatida, bu yerda ovqatlanish o'zi bir marosim.",
+  tagline: "San'at, ta'm va elegantlik bir mamlakatda.",
+  bestSeason: "April-June (gul fasli, turistlar shovqini boshlanmagan, qulay harorat), September-October (uzum terimi, Provans tinch, Parij o'z ritmida)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Paris",
+  continent: 'Europe',
+  lat: 48.8566,
+  lng: 2.3522,
+  population: '68.4 million',
+  area: '551 695 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+33',
+  currency: 'EUR',
+  currencyName: "Yevro",
+  languages: ['French'],
+  plugType: 'E (220V)',
+  drivingSide: 'right',
+  priceLevel: 4,
+  safetyRating: 4,
+  topCities: ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Nice'],
+  cuisine: ['croissant', 'coq au vin', 'bouillabaisse', 'ratatouille', 'crêpe'],
+  unesco: 52,
+  emergency: { police: '17', ambulance: '15', fire: '18', general: '112' },
+  flag: '🇫🇷',
+  featured: true,
+};

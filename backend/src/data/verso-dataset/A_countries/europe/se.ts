@@ -1,0 +1,35 @@
+// A_countries/europe/se.ts — SHVETSIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const SE = {
+  code: "SE",
+  name: "Sweden",
+  slug: 'sweden',
+  summary: "Shvetsiya — Skandinaviyaning dizayn, tengsizlik va tabiat bilan munosabat bo'yicha dunyoga namuna ko'rsatayotgan mamlakatlaridan biri. Stokgolm 14 orolda yoyilgan, shaharning har tomoni dengizga yoki ko'lga tutashgan — bu ularga Yevropada boshqa hech bir bosh shaharida bo'lmagan ochiq havo atmosferasini beradi. Goteborg ijodiy oshxonasi va musiqa madaniyati bilan yosh sayohatchilarni jalb etadi, Malmö esa Kopengagen bilan Resund ko'prigi orqali tutashib, ikkala madaniyatni bir joyda beradi.",
+  tagline: "Skandinav dizayni, tiniq suv va tenglik falsafasi bir uyda.",
+  bestSeason: "June-August (Midsommar bayrami, uzun oq tunlar, Arktika yurishlari uchun ideal), December-February (Kiruna qor festivali, Shimoliy Yoritqichlar, iglo tajribasi)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Stockholm",
+  continent: 'Europe',
+  lat: 59.3293,
+  lng: 18.0686,
+  population: '10.5 million',
+  area: '450 295 km²',
+  timezone: 'UTC+1 (CET)',
+  callingCode: '+46',
+  currency: 'SEK',
+  currencyName: "Shvetsiya kronasi",
+  languages: ['Swedish'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 4,
+  safetyRating: 5,
+  topCities: ['Stockholm', 'Gothenburg', 'Malmö', 'Uppsala', 'Kiruna'],
+  cuisine: ['meatballs', 'gravlax', 'smörgåsbord', 'cinnamon bun', 'janssons frestelse'],
+  unesco: 15,
+  emergency: { police: '112', ambulance: '112', fire: '112', general: '112' },
+  flag: '🇸🇪',
+  featured: true,
+};

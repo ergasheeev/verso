@@ -1,0 +1,35 @@
+// A_countries/europe/is.ts — ISLANDIYA
+// Oxirgi tekshiruv: 2026-09
+
+export const IS = {
+  code: "IS",
+  name: "Iceland",
+  slug: 'iceland',
+  summary: "Islandiya — suv, olov va muzdan qurilgan sayyora: faol vulqonlar, muzliklar, geyzerlar, sharsharalar va Shimoliy Yoritqichlar bitta orolda to'planib, dunyoning boshqa hech bir joyida uchramaydigan manzaralar mozaikasini yaratadi. Golden Circle marshrutida Geysir, Gulfoss sharshara va Þingvellir milliy bog'i yarim kunlik piyoda sayrda ko'rish mumkin. Reykjavik dunyo miqyosida aholisi eng kam bo'lgan davlat poytaxti — ammo musiqa va oshxona sohalarida o'z ulushini to'la berib kelmoqda. Ammo bu yerga kelishning asosiy sababi tabiat: inson yaratmagan, tabiatning o'zi sahna qilgan ulkan spektakl.",
+  tagline: "Olov va muz orasidagi tabiat nafas oladi.",
+  bestSeason: "June-August (muzliklar ochiq, suv yollari faol, kunlar deyarli tunlamaydi), January-March (Shimoliy Yoritqichlar eng yorqin fasli, qor manzarasi dramatik)",
+  visaNote:
+    "O'zbekiston pasporti: Schengen viza, konsullik orqali. EU/AQSh pasporti: Schengen vizasiz 90 kun.",
+  visaCheckedOn: '2026-09',
+  capital: "Reykjavik",
+  continent: 'Europe',
+  lat: 64.1355,
+  lng: -21.8954,
+  population: '376 000',
+  area: '103 000 km²',
+  timezone: 'UTC+0 (GMT)',
+  callingCode: '+354',
+  currency: 'ISK',
+  currencyName: "Islandiya kronasi",
+  languages: ['Icelandic'],
+  plugType: 'F (220V)',
+  drivingSide: 'right',
+  priceLevel: 5,
+  safetyRating: 5,
+  topCities: ['Reykjavik', 'Akureyri', 'Vik', 'Selfoss', 'Húsavík'],
+  cuisine: ['skyr', 'lamb soup', 'hákarl', 'plokkfiskur', 'Arctic char'],
+  unesco: 1,
+  emergency: { police: '112', ambulance: '112', fire: '112', general: '112' },
+  flag: '🇮🇸',
+  featured: true,
+};
