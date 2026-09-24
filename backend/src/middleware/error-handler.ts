@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { Prisma } from "@prisma/client";
+import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
+import { ZodError } from "zod";
 import { env } from "@/config/env";
 
 export interface AppError extends Error {
@@ -65,6 +67,37 @@ export function errorHandler(
     return;
   }
 
+  // ── JWT: expired ─────────────────────────────────────
+  if (err instanceof TokenExpiredError) {
+    res.status(401).json({
+      success: false,
+      message: "Token expired. Please log in again.",
+    });
+    return;
+  }
+
+  // ── JWT: invalid ─────────────────────────────────────
+  if (err instanceof JsonWebTokenError) {
+    res.status(401).json({
+      success: false,
+      message: "Invalid token.",
+    });
+    return;
+  }
+
+  // ── Zod: validation ──────────────────────────────────
+  if (err instanceof ZodError) {
+    const details = err.issues.map((i) => ({
+      field: i.path.join("."),
+      message: i.message,
+    }));
+    res.status(422).json({
+      success: false,
+      message: "Validation failed",
+      error: isDev ? details : details.map((d) => d.message).join(", "),
+    });
+    return;
+  }
 
   // ── Operational errors ───────────────────────────────
   const appErr = err as AppError;
