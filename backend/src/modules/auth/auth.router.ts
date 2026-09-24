@@ -70,6 +70,20 @@ authRouter.post(
   }
 );
 
+// ── POST /api/auth/refresh ─────────────────────────────
+authRouter.post(
+  "/refresh",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const token: string | undefined = req.cookies?.refreshToken;
+      if (!token) { sendError(res, "Refresh token topilmadi", 401); return; }
+      const result = await authService.refresh(token);
+      setRefreshCookie(res, result.tokens.refreshToken);
+      sendSuccess(res, { accessToken: result.tokens.accessToken });
+    } catch (err) { next(err); }
+  }
+);
+
 // ── GET /api/auth/me ───────────────────────────────────
 authRouter.get(
   "/me",

@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { type User } from "@prisma/client";
 import { prisma, withRetry } from "@/lib/prisma";
-import { generateTokens, type TokenPair } from "@/utils/jwt";
+import { generateTokens, verifyRefreshToken, type TokenPair } from "@/utils/jwt";
 import { createError } from "@/middleware/error-handler";
 
 const SALT_ROUNDS = 12;
@@ -100,4 +100,30 @@ export async function login(
   );
 
   return { user: sanitize(user), tokens };
+}
+
+// ── refresh ───────────────────────────────────────────
+export async function refresh(
+  incomingToken: string
+): Promise<{ tokens: TokenPair }> {
+  const payload = verifyRefreshToken(incomingToken);
+  if (!payload) throw createError("Token yaroqsiz yoki muddati o'tgan", 401);
+
+  const user = await withRetry(() =>
+    prisma.user.findFirst({
+      where: { id: payload.userId, refreshToken: incomingToken },
+    })
+  );
+  if (!user) throw createError("Token topilmadi — iltimos qayta kiring", 401);
+
+  const tokens = buildTokens(user);
+
+  await withRetry(() =>
+    prisma.user.update({
+      where: { id: user.id },
+      data:  { refreshToken: tokens.refreshToken },
+    })
+  );
+
+  return { tokens };
 }
