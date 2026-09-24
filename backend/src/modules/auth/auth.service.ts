@@ -15,7 +15,6 @@ const MAX_ATTEMPTS = 5;             // per issued code, then it's burned
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
 function generateCode(): string {
-  // crypto.randomInt, not Math.random — this is a credential.
   return crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
 }
 
@@ -25,8 +24,6 @@ export async function issueVerificationCode(
 ): Promise<string | null> {
   const normalized = email.toLowerCase().trim();
 
-  // Cooldown is per purpose: asking to reset a password shouldn't be
-  // refused just because a verification code was sent a moment ago.
   const recent = await withRetry(() =>
     prisma.verificationCode.findFirst({
       where: { email: normalized, purpose },
@@ -58,6 +55,66 @@ export async function issueVerificationCode(
 
   const isDevWithoutMail = env.NODE_ENV === "development" && !isMailConfigured;
   return isDevWithoutMail ? code : null;
+}
+
+// Shared by verifyEmailCode and (later) resetPassword so an expiry or
+// attempt rule enforced in one but not the other can't be a silent hole.
+async function consumeCode(email: string, code: string, purpose: CodePurpose): Promise<void> {
+  const record = await withRetry(() =>
+    prisma.verificationCode.findFirst({
+      where: { email, purpose },
+      orderBy: { createdAt: "desc" },
+    })
+  );
+  if (!record) throw createError("Kod topilmadi — yangi kod so'rang", 400);
+
+  if (record.expiresAt.getTime() < Date.now()) {
+    await withRetry(() => prisma.verificationCode.delete({ where: { id: record.id } }));
+    throw createError("Kod muddati tugagan — yangi kod so'rang", 400);
+  }
+
+  if (record.attempts >= MAX_ATTEMPTS) {
+    await withRetry(() => prisma.verificationCode.delete({ where: { id: record.id } }));
+    throw createError("Juda ko'p urinish — yangi kod so'rang", 429);
+  }
+
+  const ok = await bcrypt.compare(code, record.codeHash);
+  if (!ok) {
+    await withRetry(() =>
+      prisma.verificationCode.update({
+        where: { id: record.id },
+        data: { attempts: { increment: 1 } },
+      })
+    );
+    throw createError("Kod noto'g'ri", 400);
+  }
+
+  await withRetry(() => prisma.verificationCode.delete({ where: { id: record.id } }));
+}
+
+// Checks a submitted code and, on success, marks the account verified and
+// returns a session — verifying is the final step of registration, so the
+// user lands logged in rather than being bounced to a login form.
+export async function verifyEmailCode(
+  email: string,
+  code: string
+): Promise<{ user: SafeUser; tokens: TokenPair }> {
+  const normalized = email.toLowerCase().trim();
+
+  await consumeCode(normalized, code, "EMAIL_VERIFY");
+
+  const user = await withRetry(() => prisma.user.findUnique({ where: { email: normalized } }));
+  if (!user) throw createError("Foydalanuvchi topilmadi", 404);
+
+  const tokens = buildTokens(user);
+  const verified = await withRetry(() =>
+    prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, refreshToken: tokens.refreshToken },
+    })
+  );
+
+  return { user: sanitize(verified), tokens };
 }
 
 export interface RegisterDto {
@@ -92,8 +149,6 @@ function buildTokens(user: User): TokenPair {
 }
 
 // ── register ──────────────────────────────────────────
-// Creates the account UNVERIFIED and issues a code — it does not return
-// tokens, the session is only granted once the code is confirmed.
 export async function register(dto: RegisterDto): Promise<{ email: string; devCode: string | null }> {
   const email = dto.email.toLowerCase().trim();
 

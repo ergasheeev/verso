@@ -57,9 +57,12 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+const verifySchema = z.object({
+  email: z.string().email(),
+  code:  z.string().regex(/^\d{6}$/, "Kod 6 xonali bo'lishi kerak"),
+});
+
 // ── POST /api/auth/register ────────────────────────────
-// Returns NO session — the account is created unverified and a code is
-// emailed. The client will call /verify-email once it exists (53-commit).
 authRouter.post(
   "/register",
   validateBody(registerSchema),
@@ -72,6 +75,20 @@ authRouter.post(
         "Tasdiqlash kodi yuborildi",
         201
       );
+    } catch (err) { next(err); }
+  }
+);
+
+// ── POST /api/auth/verify-email ────────────────────────
+authRouter.post(
+  "/verify-email",
+  validateBody(verifySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, code } = req.body as z.infer<typeof verifySchema>;
+      const result = await authService.verifyEmailCode(email, code);
+      setRefreshCookie(res, result.tokens.refreshToken);
+      sendSuccess(res, { user: result.user, accessToken: result.tokens.accessToken }, "Xush kelibsiz!");
     } catch (err) { next(err); }
   }
 );
