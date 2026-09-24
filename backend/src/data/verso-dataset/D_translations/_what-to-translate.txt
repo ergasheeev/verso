@@ -1,0 +1,66 @@
+# D_translations — Nima Tarjima Qilinadi
+
+## Muhim Qoida
+Avval A_countries/ inglizcha matnlarini YAKUNLANG, keyin tarjima qiling.
+Inglizcha matn o'zgarsa — beshala tarjima ham qayta qilinadi. Ikki marta ish bo'lmaydi.
+
+---
+
+## Tarjima Qilinadigan Maydonlar
+
+### countries.i18n.ts uchun (har mamlakat, 4 til):
+- `summary` — to'liq matn
+- `tagline` — bir gap
+- `bestSeason` — oy nomlari tarjima qilinadi, sababi ham
+- `visaNote` — to'liq tarjima
+- `capital` — tarjima (Тошкент, 塔什干, Taschkent, Tachkent)
+- `topCities` — har shahar nomi tarjima/transkripsiya
+- `cuisine` — taom nomlari (kerak bo'lsa)
+
+### TARJIMA QILINMAYDI:
+- `code` (UZ, JP...)
+- `slug` (uzbekistan, japan...)
+- `lat` / `lng`
+- `currency` / `callingCode`
+- `plugType`
+- `emergency` raqamlar
+- `flag` emoji
+
+---
+
+## Til Qoidalari
+
+### Ruscha (ru/)
+- Joy nomlari transkripsiya: Kyoto → Киото
+- Apostrof: O'zbek → Узбек (harfni o'zgartirib yozing)
+
+### O'zbekcha (uz/)
+- Apostrof harf ('), tipografik ' emas
+- Ko'p, so'm, o'zbek (to'g'ri apostrof bilan)
+
+### Xitoycha (zh/)
+- Joy nomlari xitoycha yozuv: Kyoto → 京都
+
+### Nemischa (de/)
+- Qo'shtirnoq: „matn"
+- Umlautlar: ä, ö, ü, ß
+
+### Fransuzcha (fr/)
+- Elizya: l'arrivée, d'Ouzbékistan
+- Apostrof: ' (to'g'ri fransuzcha apostrof)
+
+---
+
+## Fayl Formati (misol: D_translations/ru/asia/jp.ts)
+
+```ts
+export const jp_ru = {
+  summary: "Японские...",
+  tagline: "Точность как форма гостеприимства.",
+  bestSeason: "Март–май (цветение сакуры), октябрь–ноябрь (клёны)",
+  visaNote: "Паспорт Узбекистана: электронная виза, 30 дней.",
+  capital: "Токио",
+  topCities: ["Токио", "Киото", "Осака"],
+  cuisine: ["рамен", "суши", "темпура"],
+};
+```
