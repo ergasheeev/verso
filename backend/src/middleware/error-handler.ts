@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { Prisma } from "@prisma/client";
 import { env } from "@/config/env";
 
 export interface AppError extends Error {
@@ -31,6 +32,39 @@ export function errorHandler(
     `[${new Date().toISOString()}] ${req.method} ${req.path} →`,
     isDev ? err : err.message
   );
+
+  // ── Prisma: unique constraint violation (P2002) ──────
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    const fields = (err.meta?.target as string[] | undefined)?.join(", ") ?? "field";
+    res.status(409).json({
+      success: false,
+      // Column names are internal schema details — only surface them in dev.
+      message: isDev ? `${fields} already exists` : "This record already exists",
+      error: isDev ? err.message : undefined,
+    });
+    return;
+  }
+
+  // ── Prisma: record not found (P2025) ─────────────────
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+    res.status(404).json({
+      success: false,
+      message: "Record not found",
+      error: isDev ? err.message : undefined,
+    });
+    return;
+  }
+
+  // ── Prisma: validation error ──────────────────────────
+  if (err instanceof Prisma.PrismaClientValidationError) {
+    res.status(422).json({
+      success: false,
+      message: "Invalid data provided",
+      error: isDev ? err.message : undefined,
+    });
+    return;
+  }
+
 
   // ── Operational errors ───────────────────────────────
   const appErr = err as AppError;
