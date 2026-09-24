@@ -62,6 +62,10 @@ const verifySchema = z.object({
   code:  z.string().regex(/^\d{6}$/, "Kod 6 xonali bo'lishi kerak"),
 });
 
+const resendSchema = z.object({
+  email: z.string().email(),
+});
+
 // ── POST /api/auth/register ────────────────────────────
 authRouter.post(
   "/register",
@@ -89,6 +93,26 @@ authRouter.post(
       const result = await authService.verifyEmailCode(email, code);
       setRefreshCookie(res, result.tokens.refreshToken);
       sendSuccess(res, { user: result.user, accessToken: result.tokens.accessToken }, "Xush kelibsiz!");
+    } catch (err) { next(err); }
+  }
+);
+
+// ── POST /api/auth/resend-code ─────────────────────────
+authRouter.post(
+  "/resend-code",
+  validateBody(resendSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.body as z.infer<typeof resendSchema>;
+      const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+      // Always answer the same way regardless of whether the account exists
+      // or is already verified — a differing response here would turn this
+      // endpoint into a free "is this address registered?" oracle.
+      let devCode: string | null = null;
+      if (user && !user.emailVerified) {
+        devCode = await authService.issueVerificationCode(email);
+      }
+      sendSuccess(res, devCode ? { devCode } : null, "Tasdiqlash kodi yuborildi");
     } catch (err) { next(err); }
   }
 );
