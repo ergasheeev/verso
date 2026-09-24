@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>Verso — The world, curated.</title>
+    <meta
+      name="description"
+      content="An editorial atlas of 51 countries. Expert-curated places, honest prices, AI-built itineraries and local guides — from the Silk Road to the Andes."
+    />
+    <link rel="canonical" href="https://trovatour.vercel.app/" />
+
+    <!-- Must track the --background tokens in index.css (:root and .dark)
+         and the THEME_COLOR constant in App.tsx. -->
+    <meta name="theme-color" content="#FAF6EF" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0C0A09" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="dark light" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Verso" />
+    <meta property="og:url" content="https://trovatour.vercel.app/" />
+    <meta property="og:title" content="Verso — The world, curated." />
+    <meta
+      property="og:description"
+      content="An editorial atlas of 51 countries. Expert-curated places, honest prices, AI-built itineraries and local guides."
+    />
+    <!-- TODO: a raster og:image is required by platforms that will not
+         unfurl an SVG. Replace this with a Verso PNG export; icon-logo.svg
+         is the correct mark until then. -->
+    <meta property="og:image" content="https://trovatour.vercel.app/img/logo-s-trova.png" />
+    <meta property="og:image:alt" content="Verso" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="uz_UZ" />
+    <meta property="og:locale:alternate" content="ru_RU" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Verso — The world, curated." />
+    <meta
+      name="twitter:description"
+      content="An editorial atlas of 51 countries. Expert-curated places, honest prices, AI-built itineraries and local guides."
+    />
+    <meta name="twitter:image" content="https://trovatour.vercel.app/img/logo-s-trova.png" />
+
+    <link rel="icon" type="image/svg+xml" href="/img/icon-logo.svg" />
+    <link rel="apple-touch-icon" href="/img/logo-s-trova.png" />
+    <meta name="apple-mobile-web-app-title" content="Verso" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Literata carries the editorial voice (display and headlines): a
+         variable serif with an optical-size axis, so a 72px hero and a 14px
+         byline are drawn as genuinely different cuts rather than one outline
+         scaled. It also covers latin, latin-ext, cyrillic, cyrillic-ext,
+         greek and vietnamese — the six interface languages need all of them.
+
+         Inter handles everything else, data marks included (tabular figures,
+         wider tracking). Genuine monospace is reserved for inline <code> in
+         AI replies, where the system stack serves it at no download cost.
+
+         Both families are requested with RANGED weights (300..700), not a
+         pinned list (300;400;500;600;700). That one punctuation difference
+         decides what Google serves: a pinned list returns static instances
+         with no optical-size axis, which would make every
+         `font-variation-settings: "opsz" N` in index.css a no-op. A ranged
+         request returns one true variable file per subset — opsz live, every
+         weight between 300 and 700 available — and costs 154.6 KB against
+         201.7 KB for the static equivalent (fonts.gstatic.com, latin subset).
+
+         No italic axis: a real Literata italic is a separate +110.5 KB per
+         subset for one pull-quote, so .pull-quote is set upright rather than
+         sheared into a fake italic. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,300..700&family=Inter:wght@300..700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      // Applies the saved theme before first paint, so the page never
+      // flashes the wrong canvas.
+      //
+      // The source of truth is zustand's persisted blob ("trova-v1"); the
+      // standalone "trova-theme" key is only a mirror App.tsx writes for
+      // this script's benefit. Prefer the store, fall back to the mirror,
+      // then to dark — this palette is dark-first by design.
+      (function () {
+        var theme = "dark";
+        try {
+          var persisted = localStorage.getItem("trova-v1");
+          if (persisted) {
+            var t = JSON.parse(persisted);
+            if (t && t.state && (t.state.theme === "light" || t.state.theme === "dark")) {
+              theme = t.state.theme;
+            }
+          } else {
+            var mirror = localStorage.getItem("trova-theme");
+            if (mirror === "light" || mirror === "dark") theme = mirror;
+          }
+        } catch (e) {
+          /* private mode / storage disabled — fall through to dark */
+        }
+        var root = document.documentElement;
+        root.classList.remove("dark", "light");
+        root.classList.add(theme);
+        var m = document.createElement("meta");
+        m.name = "theme-color";
+        m.content = theme === "dark" ? "#0C0A09" : "#FAF6EF";
+        document.head.appendChild(m);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
