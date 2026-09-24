@@ -1,8 +1,10 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { z } from "zod";
 import * as authService from "./auth.service";
+import { prisma } from "@/lib/prisma";
+import { authenticate } from "@/middleware/auth.middleware";
 import { validateBody } from "@/middleware/validate";
-import { sendSuccess } from "@/utils/response";
+import { sendSuccess, sendError } from "@/utils/response";
 import { REFRESH_TOKEN_MS } from "@/utils/jwt";
 import { env } from "@/config/env";
 
@@ -64,6 +66,22 @@ authRouter.post(
       const result = await authService.login(req.body as z.infer<typeof loginSchema>);
       setRefreshCookie(res, result.tokens.refreshToken);
       sendSuccess(res, { user: result.user, accessToken: result.tokens.accessToken }, "Xush kelibsiz!");
+    } catch (err) { next(err); }
+  }
+);
+
+// ── GET /api/auth/me ───────────────────────────────────
+authRouter.get(
+  "/me",
+  authenticate,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+      if (!user) { sendError(res, "Foydalanuvchi topilmadi", 404); return; }
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { passwordHash, refreshToken, ...safe } = user;
+      sendSuccess(res, safe);
     } catch (err) { next(err); }
   }
 );
