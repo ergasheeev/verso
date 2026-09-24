@@ -35,3 +35,39 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
+
+model Location {
+  id            String     @id @default(cuid())
+  name          String
+  city          String
+  region        String
+  category      Category
+  rating        Float      @default(0)
+  reviewCount   Int        @default(0)
+  images        String[]
+  tags          String[]
+  shortDesc     String?
+  fullDesc      String?
+  transport     String?
+  hours         String?
+  price         String?
+  priceUSD      Float      @default(0)
+  googleMapsUrl String?
+  bestSeason    String?
+  duration      String?
+  featured      Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+
+  @@index([city])
+  @@index([category])
+  @@index([featured])
+  @@index([rating])
+}
+
+enum Category {
+  tarix
+  tabiat
+  madaniyat
+  din
+  arxeologiya
+}
