@@ -27,10 +27,49 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-instance.interceptors.response.use((res) => {
-  if (res.data?.success !== undefined) res.data = res.data.data;
-  return res;
-});
+// Several requests can 401 at once (e.g. components fetching on mount). They
+// share one in-flight refresh: the backend rotates the refresh token on every
+// call, so independent /auth/refresh calls would invalidate each other's new
+// token and log the user out.
+let refreshPromise: Promise<string | null> | null = null;
+
+function refreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post<{ success: boolean; data: { accessToken: string } }>(
+        `${BASE_URL}/auth/refresh`,
+        {},
+        { withCredentials: true }
+      )
+      .then(({ data }) => data?.data?.accessToken ?? null)
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+instance.interceptors.response.use(
+  (res) => {
+    if (res.data?.success !== undefined) res.data = res.data.data;
+    return res;
+  },
+  async (err) => {
+    const orig = err.config as AxiosRequestConfig & { _retry?: boolean };
+    if (err.response?.status === 401 && !orig._retry) {
+      orig._retry = true;
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        localStorage.setItem("trova-token", newToken);
+        if (orig.headers) orig.headers.Authorization = `Bearer ${newToken}`;
+        return instance(orig);
+      }
+      localStorage.removeItem("trova-token");
+    }
+    return Promise.reject(err);
+  }
+);
 
 export const apiClient = {
   get:    <T>(url: string, cfg?: AxiosRequestConfig) => instance.get<T>(url, cfg).then(r => r.data as T),
