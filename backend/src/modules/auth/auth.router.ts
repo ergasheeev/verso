@@ -1,8 +1,9 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import { z } from "zod";
 import * as authService from "./auth.service";
 import { prisma } from "@/lib/prisma";
-import { authenticate } from "@/middleware/auth.middleware";
+import { authenticate, type JwtPayload } from "@/middleware/auth.middleware";
 import { validateBody } from "@/middleware/validate";
 import { sendSuccess, sendError } from "@/utils/response";
 import { REFRESH_TOKEN_MS } from "@/utils/jwt";
@@ -13,6 +14,17 @@ const PASSWORD_RULE = z.string().min(8).max(100)
   .regex(/[A-Za-z]/, "Password must contain at least one letter")
   .regex(/\d/, "Password must contain at least one number");
 
+function decodeExpiredToken(token: string): JwtPayload | null {
+  try {
+    // ignoreExpiration: still verifies the signature, just tolerates an
+    // expired `exp` claim — safe because we only use this to look up whose
+    // session to clear, never to authorize an action.
+    return jwt.verify(token, env.JWT_SECRET, { ignoreExpiration: true }) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
 export const authRouter = Router();
 
 function setRefreshCookie(res: Response, token: string): void {
@@ -20,13 +32,18 @@ function setRefreshCookie(res: Response, token: string): void {
   res.cookie("refreshToken", token, {
     httpOnly: true,
     secure:   isProd,
-    // Frontend (Vercel) and backend (Render) live on different domains in
-    // production, so the cookie is cross-site — "strict"/"lax" would never
-    // be sent on those requests. "none" (requires secure:true) is mandatory
-    // here; "lax" is fine for local dev where both run on localhost.
     sameSite: isProd ? "none" : "lax",
     maxAge:   REFRESH_TOKEN_MS,
     path:     "/api/auth",
+  });
+}
+
+function clearRefreshCookie(res: Response): void {
+  const isProd = env.NODE_ENV === "production";
+  res.clearCookie("refreshToken", {
+    path: "/api/auth",
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
   });
 }
 
@@ -80,6 +97,27 @@ authRouter.post(
       const result = await authService.refresh(token);
       setRefreshCookie(res, result.tokens.refreshToken);
       sendSuccess(res, { accessToken: result.tokens.accessToken });
+    } catch (err) { next(err); }
+  }
+);
+
+// ── DELETE /api/auth/logout ─────────────────────────────
+// Logout must succeed even if the access token already expired — otherwise
+// the refresh-token cookie and DB session are never cleared and the
+// "logged out" user can still mint new access tokens until it naturally expires.
+authRouter.delete(
+  "/logout",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const auth = req.headers.authorization;
+      const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+      const payload = token ? decodeExpiredToken(token) : null;
+
+      if (payload?.userId) {
+        await authService.logout(payload.userId);
+      }
+      clearRefreshCookie(res);
+      sendSuccess(res, null, "Chiqib ketdingiz");
     } catch (err) { next(err); }
   }
 );

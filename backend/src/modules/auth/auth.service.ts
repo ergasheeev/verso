@@ -127,3 +127,13 @@ export async function refresh(
 
   return { tokens };
 }
+
+// ── logout ────────────────────────────────────────────
+export async function logout(userId: string): Promise<void> {
+  await withRetry(() =>
+    prisma.user.update({
+      where: { id: userId },
+      data:  { refreshToken: null },
+    })
+  );
+}
