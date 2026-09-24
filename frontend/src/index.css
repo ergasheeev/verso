@@ -267,3 +267,488 @@ h4, h5, h6 {
   outline-offset: 2px;
   border-radius: 2px;
 }
+
+/* ── Focus on a ruled field ──────────────────────────────────────────────
+   Every text field in this product is a single underline, not a box. The
+   ring above drew a full rectangle around them, so focusing the email field
+   put a gold box around a design that has no box — it read as a validation
+   error rather than a cursor position.
+
+   These get the rule itself instead: the underline thickens to 2px and
+   turns gold. Still an unmistakable focus indicator, and it is the same
+   hairline vocabulary the field is already drawn in. Buttons, links and
+   cards keep the ring, which is correct for them. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.field-trigger:focus-visible {
+  outline: none;
+  border-bottom-color: var(--gold);
+  box-shadow: 0 1px 0 0 var(--gold);
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* A slim, low-contrast scrollbar for a short in-panel list (the country
+   dropdown) — the default OS scrollbar on a 240px-tall popover reads as a
+   wide grey column bolted onto the side of it. Firefox gets its own
+   thin/colour knobs; WebKit needs the pseudo-elements. */
+.scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.scrollbar-thin::-webkit-scrollbar { width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: var(--gold-hairline); }
+
+/* ── Page canvas ─────────────────────────────────────────────────────────
+   A single warm light source high on the page, plus film grain. No aurora
+   blobs: an editorial page should look lit, not backlit. */
+/* The warm gradient rides its own fixed layer rather than
+   `background-attachment: fixed` on the scrolling element. Fixed attachment
+   forces the compositor to repaint the whole background band every frame — the
+   biggest source of scroll stutter. A separate fixed child is promoted to its
+   own layer once and never repaints while scrolling. */
+.app-bg {
+  background-color: var(--background);
+  position: relative;
+}
+.app-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(90rem 44rem at 50% -18%, rgba(138, 98, 36, 0.07), transparent 62%);
+}
+.dark .app-bg::before {
+  background-image:
+    radial-gradient(90rem 44rem at 50% -18%, rgba(224, 169, 78, 0.10), transparent 62%),
+    radial-gradient(60rem 40rem at 88% 12%, rgba(201, 123, 74, 0.05), transparent 65%);
+}
+
+/* Frosted chrome (header, sidebar, nav).
+   Blur radius is the dominant cost of a backdrop-filter, and the chrome sits
+   over scrolling photography, so it re-blurs on every frame. 14px reads well at
+   this opacity and costs roughly a third of a 24px blur. */
+.glass {
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.card-shadow       { box-shadow: var(--shadow-card); }
+.card-shadow-hover { box-shadow: var(--shadow-card-hover); }
+
+/* ── Editorial primitives ───────────────────────────────────────────── */
+
+/* The small label above a section. Light tracking and weight keep it a
+   byline rather than a sign: at heavier settings every heading in the product
+   shouts in the same voice. */
+.kicker {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 450;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+/* One step up on phones. 11px of tracked capitals is a comfortable byline
+   on a laptop held two feet away and a squint on a handset — and the kicker
+   is the label naming nearly every section in the product, so it is the one
+   size worth raising. Tracking comes down slightly at the larger size so the
+   word still reads as a unit rather than spaced-out letters. */
+@media (max-width: 639px) {
+  .kicker {
+    font-size: 0.75rem;
+    letter-spacing: 0.095em;
+  }
+}
+
+/* Colour at zero specificity, so a text-colour utility on the same element
+   wins. These component classes are declared AFTER @tailwind utilities, so a
+   plain `.kicker { color }` would beat every `text-*` class written beside it.
+   Same approach as .plate and .tap-44.
+
+   Only the colour is lowered — the face, size, tracking and caps are the
+   kicker's identity and keep winning. */
+:where(.kicker) { color: var(--muted-foreground); }
+:where(.kicker-gold) { color: var(--gold); }
+
+/* The alternative to a kicker where a section deserves a real voice: a
+   sentence-case serif subhead. Used on long-form pages so not every section
+   opens with tracked capitals. */
+.subhead {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 500;
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+
+/* A pulled line. Magazines break a column of body copy with one of these; it
+   is the cheapest way to make a page feel edited rather than generated.
+
+   Set upright, not italic. A serif's real italic is a different design (cursive
+   a, single-storey g, narrower fit), not a slanted roman, and no italic Literata
+   is loaded, so a browser-sheared upright would be easy to spot. The light
+   weight, the gold and the measure do the work instead. */
+.pull-quote {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 300;
+  line-height: 1.28;
+  letter-spacing: -0.015em;
+  color: var(--gold);
+}
+
+/* Hairline rules. `.rule` is the full-width separator that structures a
+   page; `.rule-gold` marks a section the layout wants to privilege. */
+.rule       { height: 1px; width: 100%; background: var(--border); border: 0; }
+.rule-gold  { height: 1px; width: 100%; background: var(--gold-hairline); border: 0; }
+.hairline-t { border-top: 1px solid var(--border); }
+.hairline-b { border-bottom: 1px solid var(--border); }
+.hairline-l { border-left: 1px solid var(--border); }
+
+/* The 01 / 02 / 03 index numerals in editorial lists.
+
+   Inter with tabular figures and open tracking, so a list numeral shares a face
+   with the price two lines below it. Genuine monospace is reserved for
+   .font-mono, for inline <code> in AI replies, where character cells are the
+   actual requirement. */
+.index-num {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+  color: var(--muted-foreground);
+}
+
+/* Opening paragraph drop cap — used once per long-form page, never twice. */
+.drop-cap::first-letter {
+  font-family: var(--font-display);
+  font-size: 3.4em;
+  line-height: 0.82;
+  font-weight: 400;
+  float: left;
+  margin: 0.06em 0.08em 0 0;
+  color: var(--gold);
+}
+
+/* Full-bleed figure: the image frame the layout hangs headlines over. */
+/* `position` is wrapped in :where() so it carries zero specificity. These
+   component classes are declared after @tailwind utilities, so a plain
+   `.figure { position: relative }` would beat an `absolute` utility on the same
+   element and keep it in flow, taking up real height. */
+:where(.figure) { position: relative; }
+.figure {
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--muted);
+}
+.figure::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Caption scrim: 90% at the base, 62% at the middle stop, clear by 78%. Dense
+   enough that cream text reaches 4.5:1 (the floor for the 11px kicker) over
+   bright sky or light stonework. The density is set once here so every .figure
+   caption benefits, instead of each photograph's crop being patched. */
+  
+  background: linear-gradient(to top, rgba(12, 10, 9, 0.90) 0%, rgba(12, 10, 9, 0.62) 46%, transparent 78%);
+  pointer-events: none;
+}
+
+/* ── Plate ───────────────────────────────────────────────────────────────
+   What fills an image slot when there is no verified photograph: a warm, grained
+   wash whose hue is derived per subject (via --plate-h), so a grid of them reads
+   as a set of covers rather than a row of failures. It is honestly not a
+   photograph, and it does not pretend to be one. */
+/* Zero-specificity position — see the note on .figure above. */
+:where(.plate) { position: relative; }
+.plate {
+  background-color: var(--muted);
+  background-image:
+    radial-gradient(120% 90% at 18% 2%, hsl(var(--plate-h, 26) 44% 40% / 0.95), transparent 62%),
+    radial-gradient(100% 80% at 100% 100%, hsl(calc(var(--plate-h, 26) + 8) 40% 28% / 0.9), transparent 64%),
+    linear-gradient(160deg, hsl(var(--plate-h, 26) 28% 24%), hsl(var(--plate-h, 26) 24% 15%));
+}
+:root:not(.dark) .plate {
+  background-image:
+    radial-gradient(120% 90% at 20% 0%, hsl(var(--plate-h, 26) 46% 84% / 0.9), transparent 60%),
+    radial-gradient(100% 80% at 100% 100%, hsl(calc(var(--plate-h, 26) + 8) 42% 78% / 0.8), transparent 62%),
+    linear-gradient(160deg, hsl(var(--plate-h, 26) 32% 90%), hsl(var(--plate-h, 26) 26% 83%));
+}
+.plate::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 260 260' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Touch targets ───────────────────────────────────────────────────────
+   Expands a small control's tappable area to the 44px minimum without
+   changing what it paints. An audit at 390px found controls as small as
+   16×16 (the password reveal) and 28×28 (the chat reply actions), which are
+   accurate enough with a mouse and a coin-toss with a thumb.
+
+   Only for controls with clear space around them — where several sit in a
+   row, the buttons themselves are sized up instead, so neighbouring hit
+   areas can't overlap and steal each other's taps. */
+/* :where() so this carries zero specificity. Component classes here are
+   declared AFTER @tailwind utilities, so a plain `.tap-44 { position }` would
+   beat Tailwind's `absolute` on the same element (a save button in a card corner
+   would fall into normal flow below the photograph). Same approach as .plate and
+   .figure above.
+
+   An element that sets its own position keeps it; one that does not still gets
+   the containing block ::after needs. */
+:where(.tap-44) { position: relative; }
+.tap-44::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.text-gradient {
+  background: linear-gradient(100deg, var(--gold) 0%, var(--copper) 55%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Legacy name, editorial behaviour: a warm wash from the top edge rather
+   than drifting aurora blobs. */
+.aurora-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(70rem 32rem at 50% 0%, var(--gold-soft), transparent 64%);
+}
+
+/* Premium surface: a static gold hairline and a faint inner warmth. */
+.border-glow-spin {
+  position: relative;
+  border: 1px solid var(--gold-hairline);
+  box-shadow: inset 0 1px 0 0 rgba(224, 169, 78, 0.10);
+}
+
+/* A single slow gold ring breathing around a primary action, at low amplitude. */
+.btn-aura { position: relative; }
+.btn-aura::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 1px solid var(--gold-hairline);
+  opacity: 0;
+  animation: auraRing 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
+}
+
+.text-shimmer-gold {
+  background: linear-gradient(100deg, var(--gold) 20%, #F4DDAF 42%, var(--gold) 64%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 5.5s linear infinite;
+}
+
+.spotlight-card { position: relative; overflow: hidden; }
+.spotlight-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  background: radial-gradient(
+    22rem 22rem at var(--spot-x, 50%) var(--spot-y, 50%),
+    var(--gold-soft),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+.spotlight-card:hover::after { opacity: 1; }
+
+/* The gold underline that wipes in under a link or a card title. */
+.route-underline { position: relative; }
+.route-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 1px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .route-underline::after,
+.route-underline:hover::after { transform: scaleX(1); }
+
+/* A slow light sweep across a surface on hover. */
+.glint { position: relative; overflow: hidden; }
+.glint::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgba(242, 234, 220, 0.07) 50%, transparent 62%);
+  transform: translateX(-100%);
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.glint:hover::after,
+.glint:focus-visible::after { transform: translateX(100%); }
+
+/* Editorial surfaces do not rotate in space: a small, slow lift with a gold hairline. */
+.tilt-hover { transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.6s; }
+.tilt-hover:hover { transform: translateY(-2px); border-color: var(--gold-hairline); }
+
+.ripple { position: relative; overflow: hidden; }
+.ripple::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--gold-soft) 12%, transparent 12.01%);
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(10);
+  opacity: 0;
+  transition: transform 0.5s, opacity 0.9s;
+  pointer-events: none;
+}
+.ripple:active::after { transform: scale(0); opacity: 0.4; transition: 0s; }
+
+/* Film grain. Carried over and strengthened — on a near-black canvas with
+   large flat areas, a little grain is what stops gradients from banding and
+   is a large part of why the surface reads as printed rather than rendered. */
+.grain-overlay { position: relative; isolation: isolate; }
+.grain-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 260 260' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.reveal-wipe { animation: wipeIn 1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.btn-shine { position: relative; overflow: hidden; }
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 40%, rgba(242, 234, 220, 0.14) 50%, transparent 60%);
+  transform: translateX(-120%);
+  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.btn-shine:hover::after { transform: translateX(120%); }
+
+.card-lift { transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.6s; }
+.card-lift:hover { transform: translateY(-3px); }
+
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe { padding-top:    env(safe-area-inset-top,    0px); }
+.mb-nav  { margin-bottom:  calc(72px + env(safe-area-inset-bottom, 0px)); }
+
+/* ── Keyframes ──────────────────────────────────────── */
+@keyframes fadeUp   { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn  { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+@keyframes pageIn   { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shimmer  { from { background-position: 260% 0; } to { background-position: -60% 0; } }
+@keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(224, 169, 78, 0.28); } 50% { box-shadow: 0 0 0 8px rgba(224, 169, 78, 0); } }
+@keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes float    { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes popIn    { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes breathe  { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes orbBreathe { 0%, 100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.06); opacity: 1; } }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes auraRing { 0% { opacity: 0; transform: scale(0.97); } 40% { opacity: 0.5; } 100% { opacity: 0; transform: scale(1.06); } }
+@keyframes wipeIn   { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes rise     { from { opacity: 0; transform: translateY(110%); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ruleDraw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+.animate-orb-breathe { animation: orbBreathe 4s ease-in-out infinite; }
+.typing-dot { animation: typingBounce 1.2s ease-in-out infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.16s; }
+.typing-dot:nth-child(3) { animation-delay: 0.32s; }
+
+/* Entrance utilities. Long and heavy-eased — editorial motion settles into place rather than snapping. */
+.animate-fade-up    { animation: fadeUp    0.7s  cubic-bezier(0.22,1,0.36,1) both; }
+.animate-fade-in    { animation: fadeIn    0.45s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-scale-in   { animation: scaleIn   0.45s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-page-in    { animation: pageIn    0.4s  cubic-bezier(0.22,1,0.36,1) both; }
+.animate-pulse-glow { animation: pulseGlow 2.6s  ease-in-out infinite; }
+.animate-breathe    { animation: breathe   4s    ease-in-out infinite; }
+.animate-slide-down { animation: slideDown 0.5s  cubic-bezier(0.22,1,0.36,1) both; }
+.animate-float      { animation: float     7s    ease-in-out infinite; }
+.animate-pop-in     { animation: popIn     0.5s  cubic-bezier(0.22,1,0.36,1) both; }
+.animate-rise       { animation: rise      0.9s  cubic-bezier(0.22,1,0.36,1) both; }
+.animate-rule-draw  { animation: ruleDraw  1.1s  cubic-bezier(0.22,1,0.36,1) both; transform-origin: left; }
+
+.delay-50  { animation-delay:  50ms; }
+.delay-75  { animation-delay:  75ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-250 { animation-delay: 250ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+
+/* Loading placeholder — a slow bone sweep, no blue-grey pulse. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--muted);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(242, 234, 220, 0.06), transparent);
+  animation: skeletonSweep 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+@keyframes skeletonSweep { to { transform: translateX(100%); } }
+
+/* AI "generate" affordance. */
+.gen-btn-letter { display: inline-block; }
+.gen-btn-letter.is-generating { animation: genLetter 1.3s ease-in-out infinite; }
+@keyframes genLetter { 0%, 100% { transform: translateY(0); opacity: 0.65; } 50% { transform: translateY(-2px); opacity: 1; } }
+.gen-btn-spark { animation: genSpark 2.4s ease-in-out infinite; }
+@keyframes genSpark { 0%, 100% { opacity: 0.4; transform: scale(0.9) rotate(0deg); } 50% { opacity: 1; transform: scale(1.05) rotate(12deg); } }
+
+/* ── Reduced motion ─────────────────────────────────────────────────────
+   Collapses CSS animation only. framer-motion drives transforms from JS as
+   inline styles, which this rule cannot reach — App.tsx passes
+   `reducedMotion="user"` to MotionConfig so framer honours the same query. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .gen-btn-letter,
+  .gen-btn-spark,
+  .typing-dot { animation: none; }
+}
