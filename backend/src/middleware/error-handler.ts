@@ -7,6 +7,20 @@ import { env } from "@/config/env";
 export interface AppError extends Error {
   statusCode?: number;
   isOperational?: boolean;
+  /**
+   * Optional machine-readable discriminator, forwarded to the client
+   * alongside the message. Lets the frontend branch on a specific
+   * condition (e.g. EMAIL_NOT_VERIFIED → jump to the code screen) instead
+   * of string-matching a translated message.
+   */
+  code?: string;
+  /**
+   * Seconds the caller should wait before retrying, for the 429s that know
+   * the answer. Sent both as a field and as the standard `Retry-After`
+   * header so a client can drive an accurate countdown instead of guessing
+   * a fresh interval.
+   */
+  retryAfter?: number;
 }
 
 export function createError(
@@ -102,9 +116,14 @@ export function errorHandler(
   // ── Operational errors ───────────────────────────────
   const appErr = err as AppError;
   if (appErr.isOperational) {
+    if (typeof appErr.retryAfter === "number") {
+      res.setHeader("Retry-After", String(appErr.retryAfter));
+    }
     res.status(appErr.statusCode ?? 400).json({
       success: false,
       message: err.message,
+      ...(appErr.code && { code: appErr.code }),
+      ...(typeof appErr.retryAfter === "number" && { retryAfter: appErr.retryAfter }),
       ...(isDev && { stack: err.stack }),
     });
     return;

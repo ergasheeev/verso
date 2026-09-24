@@ -21,6 +21,9 @@ model User {
   // be a destructive migration for no benefit, and the rows that carry it
   // still have to be valid.
   googleId     String?    @unique
+  // Registration creates the account first and requires a code sent to this
+  // address before login is allowed (see auth.service.ts).
+  emailVerified Boolean   @default(false)
   country      String     @default("")
   lang         String     @default("uz")
   // A resized JPEG data URL (client compresses to ~256px/~150KB before

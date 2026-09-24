@@ -1,10 +1,64 @@
 import bcrypt from "bcryptjs";
-import { type User } from "@prisma/client";
+import crypto from "crypto";
+import { type User, type CodePurpose } from "@prisma/client";
 import { prisma, withRetry } from "@/lib/prisma";
 import { generateTokens, verifyRefreshToken, type TokenPair } from "@/utils/jwt";
 import { createError } from "@/middleware/error-handler";
+import { sendVerificationCode, isMailConfigured } from "@/lib/mail";
+import { env } from "@/config/env";
 
 const SALT_ROUNDS = 12;
+
+// ── Email verification ───────────────────────────────
+const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_ATTEMPTS = 5;             // per issued code, then it's burned
+const RESEND_COOLDOWN_MS = 60 * 1000;
+
+function generateCode(): string {
+  // crypto.randomInt, not Math.random — this is a credential.
+  return crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
+export async function issueVerificationCode(
+  email: string,
+  purpose: CodePurpose = "EMAIL_VERIFY"
+): Promise<string | null> {
+  const normalized = email.toLowerCase().trim();
+
+  // Cooldown is per purpose: asking to reset a password shouldn't be
+  // refused just because a verification code was sent a moment ago.
+  const recent = await withRetry(() =>
+    prisma.verificationCode.findFirst({
+      where: { email: normalized, purpose },
+      orderBy: { createdAt: "desc" },
+    })
+  );
+  if (recent && Date.now() - recent.createdAt.getTime() < RESEND_COOLDOWN_MS) {
+    const wait = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - recent.createdAt.getTime())) / 1000);
+    const err = createError(`Iltimos, ${wait} soniyadan keyin qayta urinib ko'ring`, 429);
+    err.code = "CODE_COOLDOWN";
+    err.retryAfter = wait;
+    throw err;
+  }
+
+  const code = generateCode();
+  const codeHash = await bcrypt.hash(code, SALT_ROUNDS);
+
+  await withRetry(() =>
+    prisma.verificationCode.deleteMany({ where: { expiresAt: { lt: new Date() } } })
+  );
+  await withRetry(() => prisma.verificationCode.deleteMany({ where: { email: normalized, purpose } }));
+  await withRetry(() =>
+    prisma.verificationCode.create({
+      data: { email: normalized, codeHash, purpose, expiresAt: new Date(Date.now() + CODE_TTL_MS) },
+    })
+  );
+
+  await sendVerificationCode(normalized, code, purpose);
+
+  const isDevWithoutMail = env.NODE_ENV === "development" && !isMailConfigured;
+  return isDevWithoutMail ? code : null;
+}
 
 export interface RegisterDto {
   name:     string;
@@ -38,17 +92,36 @@ function buildTokens(user: User): TokenPair {
 }
 
 // ── register ──────────────────────────────────────────
-export async function register(
-  dto: RegisterDto
-): Promise<{ user: SafeUser; tokens: TokenPair }> {
+// Creates the account UNVERIFIED and issues a code — it does not return
+// tokens, the session is only granted once the code is confirmed.
+export async function register(dto: RegisterDto): Promise<{ email: string; devCode: string | null }> {
   const email = dto.email.toLowerCase().trim();
 
   const exists = await withRetry(() => prisma.user.findUnique({ where: { email } }));
-  if (exists) throw createError("Bu email allaqachon ro'yxatdan o'tgan", 409);
+  if (exists) {
+    if (!exists.emailVerified) {
+      const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+      await withRetry(() =>
+        prisma.user.update({
+          where: { id: exists.id },
+          data: {
+            name:    dto.name.trim(),
+            surname: dto.surname.trim(),
+            passwordHash,
+            country: dto.country ?? "",
+            lang:    dto.lang ?? "uz",
+          },
+        })
+      );
+      const devCode = await issueVerificationCode(email);
+      return { email, devCode };
+    }
+    throw createError("Bu email allaqachon ro'yxatdan o'tgan", 409);
+  }
 
   const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-  const user = await withRetry(() =>
+  await withRetry(() =>
     prisma.user.create({
       data: {
         name:         dto.name.trim(),
@@ -57,19 +130,13 @@ export async function register(
         passwordHash,
         country:      dto.country ?? "",
         lang:         dto.lang ?? "uz",
+        emailVerified: false,
       },
     })
   );
 
-  const tokens = buildTokens(user);
-  await withRetry(() =>
-    prisma.user.update({
-      where: { id: user.id },
-      data:  { refreshToken: tokens.refreshToken },
-    })
-  );
-
-  return { user: sanitize(user), tokens };
+  const devCode = await issueVerificationCode(email);
+  return { email, devCode };
 }
 
 // ── login ─────────────────────────────────────────────
@@ -81,10 +148,6 @@ export async function login(
   );
   if (!user) throw createError("Email yoki parol noto'g'ri", 401);
 
-  // A Google-only account has no passwordHash — reject the email/password
-  // attempt with the same generic message as a wrong password, rather
-  // than a bcrypt.compare(x, null) crash or a message that reveals the
-  // account exists and is Google-only (that's an account-enumeration leak).
   if (!user.passwordHash) throw createError("Email yoki parol noto'g'ri", 401);
 
   const isMatch = await bcrypt.compare(dto.password, user.passwordHash);

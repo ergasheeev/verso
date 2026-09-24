@@ -9,16 +9,12 @@ import { sendSuccess, sendError } from "@/utils/response";
 import { REFRESH_TOKEN_MS } from "@/utils/jwt";
 import { env } from "@/config/env";
 
-// Password rule: at least one letter and one digit on top of the length floor.
 const PASSWORD_RULE = z.string().min(8).max(100)
   .regex(/[A-Za-z]/, "Password must contain at least one letter")
   .regex(/\d/, "Password must contain at least one number");
 
 function decodeExpiredToken(token: string): JwtPayload | null {
   try {
-    // ignoreExpiration: still verifies the signature, just tolerates an
-    // expired `exp` claim — safe because we only use this to look up whose
-    // session to clear, never to authorize an action.
     return jwt.verify(token, env.JWT_SECRET, { ignoreExpiration: true }) as JwtPayload;
   } catch {
     return null;
@@ -62,14 +58,20 @@ const loginSchema = z.object({
 });
 
 // ── POST /api/auth/register ────────────────────────────
+// Returns NO session — the account is created unverified and a code is
+// emailed. The client will call /verify-email once it exists (53-commit).
 authRouter.post(
   "/register",
   validateBody(registerSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await authService.register(req.body as z.infer<typeof registerSchema>);
-      setRefreshCookie(res, result.tokens.refreshToken);
-      sendSuccess(res, { user: result.user, accessToken: result.tokens.accessToken }, "Ro'yxatdan o'tish muvaffaqiyatli", 201);
+      sendSuccess(
+        res,
+        { email: result.email, verificationRequired: true, ...(result.devCode && { devCode: result.devCode }) },
+        "Tasdiqlash kodi yuborildi",
+        201
+      );
     } catch (err) { next(err); }
   }
 );
@@ -102,9 +104,6 @@ authRouter.post(
 );
 
 // ── DELETE /api/auth/logout ─────────────────────────────
-// Logout must succeed even if the access token already expired — otherwise
-// the refresh-token cookie and DB session are never cleared and the
-// "logged out" user can still mint new access tokens until it naturally expires.
 authRouter.delete(
   "/logout",
   async (req: Request, res: Response, next: NextFunction) => {
