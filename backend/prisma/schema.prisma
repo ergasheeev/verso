@@ -105,3 +105,26 @@ enum Category {
   din
   arxeologiya
 }
+
+// Hotels are a static catalog (frontend `data/index.ts`), not a DB table —
+// there's no `Hotel` model to relate to, so this stores the hotel's name/
+// city as plain text at booking time rather than a foreign key. A real
+// payments/availability integration would replace this; for now a hotel
+// operator follows up on these by phone/email, which is why there's no
+// status field beyond "received".
+model BookingRequest {
+  id            String   @id @default(cuid())
+  hotelId       String
+  hotelName     String
+  city          String
+  checkIn       DateTime
+  checkOut      DateTime
+  guests        Int
+  contactName   String
+  contactPhone  String
+  userId        String?
+  createdAt     DateTime @default(now())
+
+  @@index([hotelId])
+  @@index([createdAt])
+}
