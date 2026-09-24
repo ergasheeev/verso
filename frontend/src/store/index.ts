@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { User, Location } from "@/types";
 
 export interface Toast {
@@ -41,72 +42,91 @@ interface AppStore {
   dismissToast: (id: string) => void;
 }
 
-export const useAppStore = create<AppStore>()((set, get) => ({
-  // ── Auth ──────────────────────────────────────────
-  user: null,
-  isLoggedIn: false,
+export const useAppStore = create<AppStore>()(
+  persist(
+    (set, get) => ({
+      // ── Auth ──────────────────────────────────────────
+      user: null,
+      isLoggedIn: false,
 
-  login: (user) => set({ user, isLoggedIn: true }),
+      login: (user) => set({ user, isLoggedIn: true }),
 
-  logout: () => set({ user: null, isLoggedIn: false, plan: [] }),
+      logout: () => set({ user: null, isLoggedIn: false, plan: [] }),
 
-  updateUser: (data) =>
-    set((state) => ({
-      user: state.user ? { ...state.user, ...data } : null,
-    })),
+      updateUser: (data) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...data } : null,
+        })),
 
-  // ── Plan ──────────────────────────────────────────
-  plan: [],
+      // ── Plan ──────────────────────────────────────────
+      plan: [],
 
-  addToPlan: (location) =>
-    set((state) => {
-      if (state.plan.some((l) => l.id === location.id)) return state;
-      return { plan: [...state.plan, location] };
+      addToPlan: (location) =>
+        set((state) => {
+          if (state.plan.some((l) => l.id === location.id)) return state;
+          return { plan: [...state.plan, location] };
+        }),
+
+      removeFromPlan: (id) =>
+        set((state) => ({ plan: state.plan.filter((l) => l.id !== id) })),
+
+      isInPlan: (id) => get().plan.some((l) => l.id === id),
+
+      clearPlan: () => set({ plan: [] }),
+
+      // ── Theme ─────────────────────────────────────────
+      theme: "dark",
+
+      toggleTheme: () =>
+        set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
+
+      // ── UI ────────────────────────────────────────────
+      authModalOpen: false,
+      authModalTab: "login",
+      openAuthModal: (tab = "login") => set({ authModalOpen: true, authModalTab: tab }),
+      closeAuthModal: () => set({ authModalOpen: false }),
+
+      searchOpen: false,
+      setSearchOpen: (open) => set({ searchOpen: open }),
+
+      // ── Toasts ────────────────────────────────────────
+      toasts: [],
+
+      showToast: (message, icon, type = "success") => {
+        // A rapid run of clicks with the SAME message must not stack a pile
+        // of toasts, each with its own timer. If already showing, no-op.
+        const alreadyShowing = get().toasts.some((t) => t.message === message);
+        if (alreadyShowing) return;
+
+        // Date.now() alone collides when two toasts fire in the same
+        // millisecond — a random suffix keeps the key unique.
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        set((state) => {
+          const next = [...state.toasts, { id, message, icon, type }];
+          return { toasts: next.length > 3 ? next.slice(next.length - 3) : next };
+        });
+        setTimeout(() => {
+          set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+        }, 3000);
+      },
+
+      dismissToast: (id) =>
+        set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
     }),
-
-  removeFromPlan: (id) =>
-    set((state) => ({ plan: state.plan.filter((l) => l.id !== id) })),
-
-  isInPlan: (id) => get().plan.some((l) => l.id === id),
-
-  clearPlan: () => set({ plan: [] }),
-
-  // ── Theme ─────────────────────────────────────────
-  theme: "dark",
-
-  toggleTheme: () =>
-    set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
-
-  // ── UI ────────────────────────────────────────────
-  authModalOpen: false,
-  authModalTab: "login",
-  openAuthModal: (tab = "login") => set({ authModalOpen: true, authModalTab: tab }),
-  closeAuthModal: () => set({ authModalOpen: false }),
-
-  searchOpen: false,
-  setSearchOpen: (open) => set({ searchOpen: open }),
-
-  // ── Toasts ────────────────────────────────────────
-  toasts: [],
-
-  showToast: (message, icon, type = "success") => {
-    // A rapid run of clicks with the SAME message must not stack a pile of
-    // toasts, each with its own timer. If it is already showing, no-op.
-    const alreadyShowing = get().toasts.some((t) => t.message === message);
-    if (alreadyShowing) return;
-
-    // Date.now() alone collides when two toasts fire in the same
-    // millisecond — a random suffix keeps the key unique.
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    set((state) => {
-      const next = [...state.toasts, { id, message, icon, type }];
-      return { toasts: next.length > 3 ? next.slice(next.length - 3) : next };
-    });
-    setTimeout(() => {
-      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
-    }, 3000);
-  },
-
-  dismissToast: (id) =>
-    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
-}));
+    {
+      name: "verso-v1",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        user: state.user,
+        plan: state.plan,
+        theme: state.theme,
+      }),
+      // `user` is persisted but `isLoggedIn` deliberately is not — a stale
+      // `true` surviving a failed logout would be a security-relevant lie.
+      // It is derived from the restored `user` on rehydrate instead.
+      onRehydrateStorage: () => (state) => {
+        if (state) state.isLoggedIn = !!state.user;
+      },
+    }
+  )
+);
