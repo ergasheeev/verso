@@ -22,9 +22,6 @@ app.set("trust proxy", 1);
 app.use(helmet());
 
 // ── CORS ─────────────────────────────────────────────
-// FRONTEND_URL accepts a comma-separated list: the production origin plus Vercel
-// preview deployments and any custom domain. Browsers compare Origin
-// byte-for-byte, so each entry is trimmed and stripped of a trailing slash.
 const allowedOrigins = env.FRONTEND_URL
   .split(",")
   .map((o) => o.trim().replace(/\/+$/, ""))
@@ -33,12 +30,8 @@ const allowedOrigins = env.FRONTEND_URL
 app.use(
   cors({
     origin(origin, callback) {
-      // No Origin header at all = same-origin, curl, or a server-to-server
-      // call. Those aren't subject to CORS, so don't reject them.
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      // Log the rejection: a silent CORS failure surfaces to the user as a
-      // generic network error with nothing in the server logs to explain it.
       console.warn(`[cors] blocked origin: ${origin} (allowed: ${allowedOrigins.join(", ")})`);
       return callback(new Error("Not allowed by CORS"));
     },
@@ -69,6 +62,22 @@ const globalLimiter = rateLimit({
 });
 app.use("/api", globalLimiter);
 
+// ── Strict rate limit for code-sending: 5 req / 15 min ─
+// The per-email cooldown in issueVerificationCode already stops one
+// address being bombarded, but nothing stops a caller cycling through
+// many different addresses — each one a real email sent from our quota.
+// This caps it per client IP.
+const mailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) =>
+    sendError(res, "Juda ko'p so'rov — keyinroq urinib ko'ring.", 429),
+});
+app.use("/api/auth/register", mailLimiter);
+app.use("/api/auth/resend-code", mailLimiter);
+
 // ── Health check ──────────────────────────────────────
 app.get("/health", (_req, res) => {
   res.json({
@@ -81,7 +90,7 @@ app.get("/health", (_req, res) => {
 // ── API Routes ────────────────────────────────────────
 import { authRouter } from "@/modules/auth/auth.router";
 
-app.use("/api/auth", authRouter);
+app.use("/api/auth",      authRouter);
 
 // ── 404 handler ───────────────────────────────────────
 app.use((_req, res) => {
