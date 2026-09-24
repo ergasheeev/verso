@@ -2,11 +2,14 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Toaster } from "@/components/ui/Toaster";
 import Landing from "@/pages/Landing";
+import Auth from "@/pages/Auth";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/login"  element={<Auth />} />
+        <Route path="/signup" element={<Auth />} />
         <Route element={<MainLayout />}>
           <Route path="/" element={<Landing />} />
         </Route>
