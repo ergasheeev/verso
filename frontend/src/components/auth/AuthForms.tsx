@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect, useMemo, useId } from "react";
 import { isAxiosError } from "axios";
 import { AnimatePresence, motion } from "framer-motion";
-import { Eye, EyeOff, ChevronRight, PartyPopper, CheckCircle2, AlertCircle, Loader2, MailCheck } from "lucide-react";
+import { Eye, EyeOff, ChevronRight, PartyPopper, CheckCircle2, AlertCircle, Loader2, MailCheck, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store";
 import { apiClient } from "@/lib/api-client";
@@ -29,15 +29,11 @@ function extractAuthError(err: unknown, fallback: string): string {
   return err.response?.data?.message ?? fallback;
 }
 
-/** True when the request never got an answer — a client-side timeout, a
- *  dropped connection, a backend still cold-booting. */
 function isNoResponseError(err: unknown): boolean {
   if (!isAxiosError(err)) return false;
   return err.code === "ECONNABORTED" || !err.response;
 }
 
-/** Seconds to wait, when the 429 is the per-address code cooldown — not
- *  the IP rate limiter's 429, which means something else entirely. */
 function codeCooldownSeconds(err: unknown): number | null {
   if (!isAxiosError<{ code?: string; retryAfter?: number }>(err)) return null;
   if (err.response?.status !== 429 || err.response.data?.code !== "CODE_COOLDOWN") return null;
@@ -48,8 +44,6 @@ function codeCooldownSeconds(err: unknown): number | null {
 }
 
 // ── Verification code entry ──────────────────────────────────────────
-// Six separate boxes rather than one text field: the expected length is
-// obvious without instructions, and paste-from-email fills all six at once.
 function CodeInput({
   value,
   onChange,
@@ -348,6 +342,162 @@ function PasswordStrengthMeter({ password, t }: { password: string; t: ReturnTyp
   );
 }
 
+// ── Forgot / reset password ──────────────────────────────────────────
+// Three stages in one component (ask for email → code + new password →
+// done) rather than three screens, because the email carries between them.
+function ForgotPassword({
+  onDone,
+  onCancel,
+  initialEmail,
+}: {
+  onDone: (user: User) => void;
+  onCancel: () => void;
+  initialEmail?: string;
+}) {
+  const { t } = useTranslation();
+  const [stage, setStage] = useState<"email" | "reset" | "done">("email");
+  const [email, setEmail] = useState(initialEmail ?? "");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [devCode, setDevCode] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const emailValid = /\S+@\S+\.\S+/.test(email);
+  const passwordValid = password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
+  const canReset = code.length === 6 && passwordValid;
+
+  async function requestCode() {
+    if (!emailValid || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await apiClient.post<{ devCode?: string } | null>(
+        "/auth/forgot-password", { email: email.trim().toLowerCase() }
+      );
+      if (res?.devCode) setDevCode(res.devCode);
+      setStage("reset");
+    } catch (err: unknown) {
+      setError(extractAuthError(err, t("auth", "err_reset")));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitReset() {
+    if (!canReset || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await apiClient.post<{ user: User; accessToken: string }>(
+        "/auth/reset-password",
+        { email: email.trim().toLowerCase(), code, newPassword: password },
+      );
+      localStorage.setItem("trova-token", res.accessToken);
+      setStage("done");
+      setTimeout(() => onDone(res.user), 1100);
+    } catch (err: unknown) {
+      setError(extractAuthError(err, t("auth", "err_reset")));
+      setCode("");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (stage === "done") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 320, damping: 26 }}
+        className="text-center py-8 space-y-3"
+      >
+        <div className="w-14 h-14 mx-auto rounded-sm border border-[var(--gold-hairline)] bg-[var(--gold-soft)] flex items-center justify-center">
+          <CheckCircle2 className="w-6 h-6 text-accent" strokeWidth={1.5} />
+        </div>
+        <p className="font-display text-[20px] leading-tight text-ink">{t("auth", "reset_done")}</p>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <KeyRound className="w-5 h-5 text-accent mb-4" strokeWidth={1.75} aria-hidden />
+        <h3 className="font-display text-[22px] leading-tight text-ink">
+          {stage === "email" ? t("auth", "forgot_title") : t("auth", "reset_title")}
+        </h3>
+        <p className="text-[13px] leading-relaxed text-subtle mt-2">
+          {stage === "email" ? t("auth", "forgot_desc") : t("auth", "reset_desc")}
+        </p>
+        {stage === "reset" && (
+          <p className="tabular text-[13px] text-ink mt-1 break-all">{email}</p>
+        )}
+      </div>
+
+      {stage === "email" ? (
+        <>
+          <Field
+            label={t("auth", "email")} type="email" value={email} onChange={setEmail}
+            placeholder={t("auth", "email_placeholder")} autoComplete="email"
+          />
+          <Button type="button" fullWidth onClick={requestCode} disabled={!emailValid || loading}>
+            {loading && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
+            {t("auth", "forgot_send")}
+          </Button>
+        </>
+      ) : (
+        <>
+          {devCode && (
+            <div className="rounded-sm border border-[var(--gold-hairline)] bg-[var(--gold-soft)] px-4 py-3 text-center">
+              <p className="kicker kicker-gold">
+                Dev — SMTP not configured
+              </p>
+              <button
+                type="button"
+                onClick={() => setCode(devCode)}
+                className="tabular text-[21px] tracking-[6px] text-ink hover:text-accent transition-colors duration-400"
+              >
+                {devCode}
+              </button>
+            </div>
+          )}
+
+          <CodeInput value={code} onChange={setCode} disabled={loading} />
+
+          <div className="space-y-1.5">
+            <Field
+              label={t("auth", "new_password")} type="password" value={password} onChange={setPassword}
+              placeholder={t("auth", "new_password_ph")} autoComplete="new-password" required
+            />
+            <PasswordStrengthMeter password={password} t={t} />
+          </div>
+
+          <Button type="button" fullWidth onClick={submitReset} disabled={!canReset || loading}>
+            {loading && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
+            {loading ? t("auth", "reset_loading") : t("auth", "reset_btn")}
+          </Button>
+        </>
+      )}
+
+      {error && (
+        <p className="flex items-start gap-2 text-[12px] text-copper-400 border border-copper-500/35 rounded-sm px-3 py-2.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          {error}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={onCancel}
+        className="w-full text-[11px] uppercase tracking-[0.12em] text-subtle hover:text-ink transition-colors duration-400"
+      >
+        {t("auth", "back_to_login")}
+      </button>
+    </div>
+  );
+}
+
 // ── Login tab ─────────────────────────────────────────────────────────
 export function LoginTab({ onClose }: { onClose: () => void }) {
   const { login } = useAppStore();
@@ -357,9 +507,8 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
   const [errors, setErrors]     = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState("");
   const [loading, setLoading]   = useState(false);
-  // Set when the backend reports EMAIL_NOT_VERIFIED, which switches this
-  // tab over to the code screen rather than dead-ending on an error.
   const [needsVerify, setNeedsVerify] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   function validate() {
     const e: Record<string, string> = {};
@@ -411,6 +560,16 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
     );
   }
 
+  if (forgot) {
+    return (
+      <ForgotPassword
+        initialEmail={email}
+        onDone={finishLogin}
+        onCancel={() => setForgot(false)}
+      />
+    );
+  }
+
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <Field label={t("auth", "email")} type="email" value={email} onChange={setEmail}
@@ -427,6 +586,14 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
         {loading && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
         {loading ? t("auth", "loading_login") : t("auth", "login_btn")}
       </Button>
+
+      <button
+        type="button"
+        onClick={() => setForgot(true)}
+        className="w-full py-3.5 text-[11px] uppercase tracking-[0.12em] text-accent hover:text-gold-300 transition-colors duration-400"
+      >
+        {t("auth", "forgot_link")}
+      </button>
     </form>
   );
 }
