@@ -1,0 +1,25 @@
+{
+  "name": "verso",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev": "concurrently -n \"FRONTEND,BACKEND\" -c \"cyan,green\" \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && tsc",
+    "build": "npm run build:frontend && npm run build:backend",
+    "lint": "concurrently \"npm run lint --workspace=frontend\" \"npm run lint --workspace=backend\"",
+    "format": "concurrently \"npm run format --workspace=frontend\" \"npm run format --workspace=backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "overrides": {
+    "@types/express": "^4.17.21"
+  }
+}

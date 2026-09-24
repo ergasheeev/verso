@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+backend/dist/
+frontend/dist/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+backend/.env
+backend/.env.local
+backend/.env.development.local
+backend/.env.test.local
+backend/.env.production.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+*.pem
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.cache/
+.turbo/
+.claude/worktrees/
+
+# Presentations / design docs — kept locally, not in the code repo
+*.pdf
+
+# Claude Code lokal sozlamalari
+.claude/
+
+# Shaxsiy eslatmalar va ish fayllari (repoga kerak emas)
+OQING.txt
+test_verso.pptx
+
+# verso-dataset — mamlakat/joy ma'lumotlarini tayyorlash uchun ishchi
+# papka. Uning foydali natijasi (matn, tarjima, faktlar, tanlangan
+# rasmlar) allaqachon frontend/backend'ning o'z fayllariga birlashtirildi
+# (countries.ts, country-prose/, global-places.ts, global-knowledge-base.ts,
+# country-images/, global-place-images/). C_images/ o'zi 72 MB — asl
+# jpg+webp nusxalari, ulardan foydali bo'lgan 83 tasi allaqachon
+# nusxalangan — qolgani reponi keraksiz og'irlashtiradi. Matn manbalari
+# (A_countries/, B_places/, D_translations/, scripts/) juda kichik va
+# kelajakda foydali bo'lishi mumkin, shuning uchun saqlanadi.
+backend/src/data/verso-dataset/C_images/
+backend/src/data/verso-dataset/output/
+
+# Taqdimot fayllari repoga kerak emas
+*.pptx
