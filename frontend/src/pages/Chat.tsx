@@ -62,6 +62,37 @@ const ACTION_BTN =
   "flex items-center justify-center w-9 h-9 rounded-sm transition-colors duration-400 " +
   "text-subtle hover:text-accent";
 
+// A refresh keeps the conversation: a long itinerary refined over several turns
+// is the most expensive thing in the app to lose.
+const HISTORY_KEY = "verso-chat-v1";
+const HISTORY_LIMIT = 40;
+
+function loadHistory(): Message[] | null {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as (Omit<Message, "timestamp"> & { timestamp: string })[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    // JSON has no Date type, so timestamps come back as strings and every
+    // `formatTime` call would throw on them.
+    return parsed.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+  } catch {
+    return null;
+  }
+}
+
+function saveHistory(messages: Message[]) {
+  try {
+    // The welcome message is regenerated per language on mount, so persisting
+    // it would pin the conversation to whatever locale it was started in.
+    const keep = messages.filter((m) => m.id !== "welcome").slice(-HISTORY_LIMIT);
+    if (keep.length === 0) localStorage.removeItem(HISTORY_KEY);
+    else localStorage.setItem(HISTORY_KEY, JSON.stringify(keep));
+  } catch {
+    // Quota or private mode — losing history is not worth breaking the page.
+  }
+}
+
 export default function Chat() {
   const plan = useAppStore((s) => s.plan);
   const { t, lang } = useTranslation();
@@ -81,7 +112,10 @@ export default function Chat() {
     { Icon: Lightbulb, label: t("chat", "quick_tips"),      text: t("chat", "quick_tips_prompt"),      seed: "tips" },
   ];
 
-  const [messages, setMessages] = useState<Message[]>(() => [makeWelcomeMessage()]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const restored = loadHistory();
+    return restored ?? [makeWelcomeMessage()];
+  });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -226,7 +260,12 @@ export default function Chat() {
     setMessages([makeWelcomeMessage()]);
     setInput("");
     lastUserTextRef.current = "";
+    saveHistory([]);
   }
+
+  useEffect(() => {
+    saveHistory(messages);
+  }, [messages]);
 
   useEffect(() => {
     setMessages((prev) =>
