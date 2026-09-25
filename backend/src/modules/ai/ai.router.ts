@@ -22,6 +22,12 @@ const chatSchema = z.object({
   }).optional(),
 });
 
+const translateSchema = z.object({
+  text: z.string().min(1).max(2000),
+  from: z.string().min(2).max(8),
+  to:   z.string().min(2).max(8),
+});
+
 // ── POST /api/ai/chat ─────────────────────────────────
 aiRouter.post("/chat", optionalAuth, validateBody(chatSchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -42,6 +48,17 @@ aiRouter.post("/chat", optionalAuth, validateBody(chatSchema),
         model,
       });
       sendSuccess(res, { reply });
+    } catch (err) { next(err); }
+  }
+);
+
+// ── POST /api/ai/translate ────────────────────────────
+aiRouter.post("/translate", optionalAuth, validateBody(translateSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { text, from, to } = req.body as z.infer<typeof translateSchema>;
+      const translation = await aiService.translate(text, from, to);
+      sendSuccess(res, { translation });
     } catch (err) { next(err); }
   }
 );

@@ -127,3 +127,33 @@ Noaniq, taxminiy javob berma — aniq bo'l. Emoji ishlatma.`;
   });
   return getText(response);
 }
+
+// ── translate ───────────────────────────────────────────
+// Backs the voice translator: someone speaks in one language, this returns
+// the other. Deliberately a separate call from `chat` rather than the same
+// endpoint with a "please translate" instruction stitched onto the
+// conversational system prompt above — that prompt is 100+ lines of
+// itinerary-building rules the model has no reason to load for a
+// single-sentence translation, and it measurably slows the response on a
+// feature where latency is the whole experience (spoken → heard).
+export async function translate(text: string, from: string, to: string): Promise<string> {
+  const fromName = LANG_NAMES[from] ?? from;
+  const toName = LANG_NAMES[to] ?? to;
+
+  const response = await callGroq(() => client.chat.completions.create({
+    model: MODEL,
+    max_tokens: 400,
+    temperature: 0.2,
+    messages: [
+      {
+        role: "system",
+        content: `You are a professional interpreter. Translate the user's message from ${fromName} to ${toName}.
+Output ONLY the translation — no quotes, no notes, no "here is the translation", nothing else.
+Preserve the register and tone (casual stays casual, formal stays formal).
+If the text is already in ${toName}, output it unchanged.`,
+      },
+      { role: "user", content: text },
+    ],
+  }));
+  return getText(response).trim();
+}
