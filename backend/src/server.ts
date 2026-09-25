@@ -58,6 +58,17 @@ const globalLimiter = rateLimit({
 });
 app.use("/api", globalLimiter);
 
+// ── Strict rate limit for AI: 20 req / min ───────────
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) =>
+    sendError(res, "AI request limit reached. Please wait a moment.", 429),
+});
+app.use("/api/ai", aiLimiter);
+
 // ── Strict rate limit for code-sending: 5 req / 15 min ─
 const mailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -82,8 +93,10 @@ app.get("/health", (_req, res) => {
 
 // ── API Routes ────────────────────────────────────────
 import { authRouter } from "@/modules/auth/auth.router";
+import { aiRouter }   from "@/modules/ai/ai.router";
 
 app.use("/api/auth",      authRouter);
+app.use("/api/ai",        aiRouter);
 
 // ── 404 handler ───────────────────────────────────────
 app.use((_req, res) => {
