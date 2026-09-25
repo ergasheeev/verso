@@ -4,7 +4,7 @@ import * as aiService from "./ai.service";
 import { prisma } from "@/lib/prisma";
 import { optionalAuth, authenticate } from "@/middleware/auth.middleware";
 import { validateBody } from "@/middleware/validate";
-import { sendSuccess } from "@/utils/response";
+import { sendSuccess, sendError } from "@/utils/response";
 
 export const aiRouter = Router();
 
@@ -29,6 +29,7 @@ const chatSchema = z.object({
   }).optional(),
 });
 
+const insightSchema  = z.object({ locationId: z.string().min(1), lang: z.string().optional() });
 const tourPlanSchema = z.object({
   tourData: z.object({
     days:    z.string().min(1),
@@ -119,6 +120,27 @@ aiRouter.post("/tour-plan", authenticate, validateBody(tourPlanSchema),
 
       const plan = await aiService.generateTourPlan(tourData, locations);
       sendSuccess(res, { plan });
+    } catch (err) { next(err); }
+  }
+);
+
+// ── POST /api/ai/analyze-reviews (insight) ────────────
+aiRouter.post("/analyze-reviews", optionalAuth, validateBody(insightSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { locationId, lang } = req.body as z.infer<typeof insightSchema>;
+
+      const location = await prisma.location.findUnique({ where: { id: locationId } });
+      if (!location) { sendError(res, "Location not found", 404); return; }
+
+      const reviews = await prisma.review.findMany({
+        where:   { locationId },
+        orderBy: { createdAt: "desc" },
+        take:    20,
+      });
+
+      const insight = await aiService.generateInsight(location.name, reviews, lang);
+      sendSuccess(res, { insight });
     } catch (err) { next(err); }
   }
 );

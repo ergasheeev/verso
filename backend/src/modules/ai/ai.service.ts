@@ -39,9 +39,12 @@ const geminiLimiter = createRateLimiter({
   perDay: env.GEMINI_RPD_LIMIT,
 });
 
-// Every AI feature calls through this constant, so a retired Groq model
-// takes all of them down with one clear 503, not a scattered one per call site.
-// gpt-oss-120b: 131k context, solid Uzbek/Russian/Chinese output.
+// Every AI feature (chat, review analysis, SmartReview insights) calls through
+// this constant, so a retired Groq model takes all of them down with a 503
+// (`model_not_found`). Pinned to a model confirmed against GET /openai/v1/models:
+// gpt-oss-120b is the strongest available, with 131k context and solid
+// Uzbek/Russian/Chinese - the assistant answers in whichever of six languages it
+// is addressed in.
 const MODEL = "openai/gpt-oss-120b";
 
 /**
@@ -83,6 +86,7 @@ export interface UserContext  {
   compact?: boolean;
 }
 export interface TourData     { days: string; people: string; regions: string[]; budget: string; }
+export interface ReviewForInsight { author: string; stars: number; text: string; trustScore: number; }
 export interface AnalysisResult   { trustScore: number; aiTags: string[]; verified: boolean; }
 
 // Human-readable names the model can act on reliably — passing the raw
@@ -163,7 +167,7 @@ async function chatCompletion(
   return callGroq(() => client.chat.completions.create({ model: resolveChatModel(tier), ...body }));
 }
 
-// ── chat ────────────────────────────────────────────────
+// ── 1. chat ────────────────────────────────────────────
 export async function chat(messages: ChatMessage[], ctx: UserContext = {}): Promise<string> {
   const hasPlan = ctx.plan && ctx.plan.trim().length > 0;
   const interfaceLang = LANG_NAMES[ctx.lang ?? ""] ?? "English";
@@ -210,9 +214,9 @@ one answer — which is what this rule exists to prevent.
 - Tables are fine when the data really is tabular (3+ rows being compared)
 - Lead with the answer; never open with a restatement of the question`}`;
 
-  // Only the conversational endpoint is tier-selectable. Translation stays
-  // pinned to the default: it is graded against one model's output and a
-  // reader never chose a tier for it.
+  // Only the conversational endpoint is tier-selectable. Review analysis,
+  // insights and translation stay pinned to the default: those are graded
+  // against one model's output and a reader never chose a tier for them.
   // The phone rule goes in its own system turn AFTER the conversation, not
   // inside the main prompt.
   //
@@ -233,9 +237,9 @@ one answer — which is what this rule exists to prevent.
       }]
     : [];
 
-  // Only the conversational endpoint is tier-selectable. Translation stays
-  // pinned to the default: it is graded against one model's output and a
-  // reader never chose a tier for it.
+  // Only the conversational endpoint is tier-selectable. Review analysis,
+  // insights and translation stay pinned to the default: those are graded
+  // against one model's output and a reader never chose a tier for them.
   const response = await chatCompletion(ctx.model, {
     // Not lowered for the phone. gpt-oss is a reasoning model whose reasoning tokens
     // come out of this same budget: at max_tokens 700 the visible answer was truncated
@@ -251,7 +255,7 @@ one answer — which is what this rule exists to prevent.
   return getText(response);
 }
 
-// ── analyzeReview ───────────────────────────────────────
+// ── 2. analyzeReview ───────────────────────────────────
 export async function analyzeReview(text: string, stars: number): Promise<AnalysisResult> {
   const response = await callGroq(() => client.chat.completions.create({
     model: MODEL,
@@ -284,7 +288,7 @@ aiTags: 2-4 uzbek topic keywords`,
   }
 }
 
-// ── generateTourPlan ────────────────────────────────────
+// ── 3. generateTourPlan ────────────────────────────────
 export async function generateTourPlan(tourData: TourData, locations: Location[]): Promise<string> {
   const list = locations
     .map((l) => `• ${l.name} (${l.city}): ${l.shortDesc ?? ""} — ~$${l.priceUSD}`)
@@ -329,7 +333,34 @@ Oxirida "### Umumiy xulosa" (kirish biletlari / turar joy / ovqat / transport / 
 }
 
 
-// ── translate ───────────────────────────────────────────
+// ── 4. generateInsight ─────────────────────────────────
+export async function generateInsight(locationName: string, reviews: ReviewForInsight[], lang?: string): Promise<string> {
+  if (!reviews.length) {
+    return `${locationName} haqida hali yetarli sharhlar yo'q.\nBirinchi bo'lib sharh qoldiring!`;
+  }
+
+  const avg = (reviews.reduce((s, r) => s + r.stars, 0) / reviews.length).toFixed(1);
+  const summary = reviews
+    .slice(0, 15)
+    .map((r) => `[${r.stars}★, ishonch:${r.trustScore}%] "${r.text.slice(0, 120)}"`)
+    .join("\n");
+  const interfaceLang = LANG_NAMES[lang ?? ""] ?? "English";
+
+  const response = await callGroq(() => client.chat.completions.create({
+    model: MODEL,
+    max_tokens: 600,
+    messages: [
+      {
+        role: "user",
+        content: `"${locationName}" joyi haqida ${reviews.length} ta sharh (o'rtacha: ${avg}★) asosida 4-5 ta insight yozing. Har birini "- " bilan boshlang (markdown ro'yxat), emoji ishlatma. Javobni albatta ${interfaceLang} tilida yoz:\n\n${summary}`,
+      },
+    ],
+  }));
+  return getText(response);
+}
+
+
+// ── 5. translate ────────────────────────────────────────
 // Backs the voice translator: someone speaks in one language, this returns
 // the other. Deliberately a separate call from `chat` rather than the same
 // endpoint with a "please translate" instruction stitched onto the

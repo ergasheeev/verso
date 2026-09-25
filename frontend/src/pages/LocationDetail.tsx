@@ -3,11 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft, Bookmark, BookmarkCheck, ExternalLink, Star, Send, Loader2,
-  Share2, Check, X,
+  ChevronDown, ChevronUp, Share2, Check, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LOCATIONS_BY_ID, INIT_REVIEWS } from "@/data";
 import { CATEGORY_STYLE } from "@/lib/categories";
+import { MessageContent } from "@/components/chat/MessageContent";
 import { Kicker, Rule, PageWrap, DataRow, Button } from "@/components/ui/editorial";
 import { ParallaxHero } from "@/components/ui/ScrollMotion";
 import { useAppStore } from "@/store";
@@ -100,6 +101,91 @@ function ReviewEntry({ review, t }: { review: Review; t: TFn }) {
         </div>
       )}
     </article>
+  );
+}
+
+/** The AI reading of this place's reviews. */
+function SmartReview({
+  reviews, locationId, lang, t,
+}: { reviews: Review[]; locationId: string; lang: string; t: TFn }) {
+  const [insight, setInsight] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const avgRating = useMemo(
+    () => (reviews.length ? reviews.reduce((s, r) => s + r.stars, 0) / reviews.length : 0),
+    [reviews],
+  );
+
+  async function analyze() {
+    if (insight) { setOpen((o) => !o); return; }
+    setLoading(true);
+    setError(false);
+    try {
+      // The backend endpoint reads the real review rows for this location and
+      // prompts the model in the interface language.
+      const res = await apiClient.post<{ insight: string }>(
+        "/ai/analyze-reviews",
+        { locationId, lang },
+        { timeout: 45_000 },
+      );
+      setInsight(res.insight ?? t("detail", "insight_error"));
+      setOpen(true);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="border border-[var(--gold-hairline)] rounded-sm bg-[var(--gold-soft)]">
+      <button
+        onClick={analyze}
+        disabled={loading || !reviews.length}
+        className="w-full flex items-center justify-between gap-5 px-5 py-4 text-left disabled:opacity-50"
+      >
+        <div className="min-w-0">
+          <Kicker gold className="mb-1.5">{t("detail", "smart_review_label")}</Kicker>
+          <p className="tabular text-[11px] text-subtle">
+            {reviews.length} {t("detail", "total_reviews")} · ★ {avgRating.toFixed(1)}
+          </p>
+        </div>
+        <span className="shrink-0 text-accent">
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+          ) : error ? (
+            <span className="text-[11px] sm:text-[10px] uppercase tracking-[0.12em] text-copper-400">
+              {t("detail", "insight_error")}
+            </span>
+          ) : insight ? (
+            open ? <ChevronUp className="w-4 h-4" aria-hidden /> : <ChevronDown className="w-4 h-4" aria-hidden />
+          ) : (
+            <span className="text-[11px] sm:text-[10px] uppercase tracking-[0.14em]">{t("detail", "ai_insight")}</span>
+          )}
+        </span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && insight && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="px-5 pb-5 pt-1 border-t border-[var(--gold-hairline)]">
+              <Kicker className="mb-2.5 mt-4">{t("detail", "insight_title")}</Kicker>
+              <div className="text-[13px] leading-relaxed text-ink max-w-[64ch]">
+                <MessageContent text={insight} />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -395,6 +481,10 @@ export default function LocationDetail() {
                 </Button>
               </div>
               <Rule gold />
+
+              <div className="mt-6">
+                <SmartReview reviews={allReviews} locationId={loc.id} lang={lang} t={t} />
+              </div>
 
               <AnimatePresence initial={false}>
                 {reviewOpen && (
