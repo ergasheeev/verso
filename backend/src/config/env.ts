@@ -17,6 +17,18 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
   GROQ_API_KEY: z.string({ required_error: "GROQ_API_KEY is required" }),
+  // Optional third chat tier via Google's OpenAI-compatible endpoint. Unset
+  // by default — the chat works on Groq alone — so this never blocks a boot.
+  GEMINI_API_KEY: z.string().optional(),
+  // Gemini's free tier is metered per PROJECT, not per visitor, so every
+  // reader of this app draws from one shared quota — these are the local
+  // circuit breaker that keeps the app from burning through it and getting
+  // 429s for everyone. Deliberately tight, since Google's own free-tier
+  // ceiling for this project measures well under 20 requests/day — verify
+  // the live number at aistudio.google.com/rate-limit before raising these;
+  // Google changes it without warning.
+  GEMINI_RPM_LIMIT: z.coerce.number().int().positive().default(5),
+  GEMINI_RPD_LIMIT: z.coerce.number().int().positive().default(15),
   BREVO_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().default("smtp.gmail.com"),
   SMTP_PORT: z.coerce.number().default(587),

@@ -3,10 +3,39 @@ import { env } from "@/config/env";
 import { KNOWLEDGE_BASE, selectKnowledge } from "@/data/knowledge-base";
 import { selectGlobalKnowledge } from "@/data/global-knowledge-base";
 import { createError } from "@/middleware/error-handler";
+import { createRateLimiter } from "@/lib/rate-limiter";
 
 const client = new OpenAI({
   apiKey: env.GROQ_API_KEY,
   baseURL: "https://api.groq.com/openai/v1",
+});
+
+// Powers the "deep" (Verso Pro) tier — only live when a key is configured.
+// Google's Gemini API speaks the OpenAI chat-completions shape at this base
+// URL, so it reuses the same client class rather than a second SDK.
+//
+// Free-tier note for whoever tunes this next: Google's free tier logs
+// prompts and outputs to improve their products (unlike the paid tier).
+const geminiClient = env.GEMINI_API_KEY
+  ? new OpenAI({
+      apiKey: env.GEMINI_API_KEY,
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    })
+  : null;
+
+// Gemini serves the Pro tier. gemini-3.1-pro has a free-tier quota of 0 on this
+// project (429 RESOURCE_EXHAUSTED) and needs billing on the Google Cloud project;
+// gemini-2.5-flash is closed to new users. gemini-3.6-flash is the model reachable
+// on the free tier. With billing enabled, this is the one line to change to move
+// Pro onto a stronger Gemini model.
+const GEMINI_MODEL = "gemini-3.6-flash";
+
+// Gemini's free tier is metered per project, so every Pro reader draws from one
+// shared daily pool (roughly 15-20 requests/day). This limiter is the circuit
+// breaker; chatCompletion() falls back to Groq once it trips.
+const geminiLimiter = createRateLimiter({
+  perMinute: env.GEMINI_RPM_LIMIT,
+  perDay: env.GEMINI_RPD_LIMIT,
 });
 
 // Every AI feature calls through this constant, so a retired Groq model
@@ -16,11 +45,24 @@ const MODEL = "openai/gpt-oss-120b";
 
 /**
  * The Groq tiers the chat offers, and the ONLY ones a request may select.
- * An allowlist, not a pass-through — a client that could name any model
- * could point this account's key at anything Groq hosts.
+ *
+ * An allowlist, not a pass-through: the client sends a short tier name and
+ * the real Groq id is resolved here. A client that could name any model
+ * could point this account's key at anything Groq hosts — including the
+ * far more expensive ones — and could probe which models exist.
+ *
+ * Both are the same family and both carry 131k context. "deep" itself is
+ * only reached as the Groq fallback now — see chatCompletion() below, which
+ * routes a "deep" request to Gemini first and falls back to this Groq id
+ * only if Gemini is unconfigured, rate-limited this window, or errors.
+ * Checked against GET /openai/v1/models before being pinned; see the note
+ * above about what happens when a pinned model is retired.
  */
 export const CHAT_MODELS = {
+  // "Standard" — always Groq, never routed through Gemini. Verso Pro is the
+  // tier meant to draw on Gemini's scarce free quota, not every visitor.
   fast: "openai/gpt-oss-20b",
+  // "Pro" 's Groq fallback — see the comment above.
   deep: "openai/gpt-oss-120b",
 } as const;
 
@@ -82,10 +124,37 @@ async function callGroq<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Resolves a request's model tier to an actual completion.
+ *
+ * "deep" (Verso Pro) tries Gemini first and falls back to Groq's own
+ * gpt-oss-120b — silently, on three different grounds: no Gemini key
+ * configured, this window's shared rate limit already spent, or the Gemini
+ * call itself failing (network blip, Google's own outage, an account-level
+ * quota Google changed without notice). A Pro subscriber is paying for this
+ * tier; the whole point of Gemini's free quota running out on a busy day is
+ * that it must not look like their benefit broke — it quietly becomes the
+ * same strong Groq model Pro always used before Gemini existed.
+ *
+ * "fast" (Standard) never touches Gemini — it stays on Groq unconditionally,
+ * so the free tier's shared quota is spent on Pro traffic only.
+ */
 async function chatCompletion(
   tier: string | undefined,
   body: Omit<OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming, "model">,
 ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+  if (tier === "deep") {
+    if (geminiClient && geminiLimiter.tryAcquire()) {
+      try {
+        return await geminiClient.chat.completions.create({ model: GEMINI_MODEL, ...body });
+      } catch (err) {
+        console.error("[ai.service] Gemini call failed, falling back to Groq deep:", err);
+      }
+    } else {
+      console.info("[ai.service] Gemini unavailable this window (no key or rate-limited) — falling back to Groq deep");
+    }
+    return callGroq(() => client.chat.completions.create({ model: CHAT_MODELS.deep, ...body }));
+  }
   return callGroq(() => client.chat.completions.create({ model: resolveChatModel(tier), ...body }));
 }
 
