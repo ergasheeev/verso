@@ -16,9 +16,7 @@ const envSchema = z.object({
     .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
   JWT_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
-  // Email verification codes. Optional so the server still boots without
-  // it (useful locally) — when unset, mail.ts falls back to logging the
-  // code to the console instead of sending.
+  GROQ_API_KEY: z.string({ required_error: "GROQ_API_KEY is required" }),
   BREVO_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().default("smtp.gmail.com"),
   SMTP_PORT: z.coerce.number().default(587),
