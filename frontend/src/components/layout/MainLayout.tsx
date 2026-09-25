@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Masthead } from "./Masthead";
 import { BottomNav } from "./BottomNav";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
+import { cn } from "@/lib/utils";
 
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
@@ -10,7 +11,7 @@ const pageVariants = {
   exit: { opacity: 0, y: -8 },
 };
 
-function PageTransition({ children }: { children: React.ReactNode }) {
+function PageTransition({ children, fill }: { children: React.ReactNode; fill?: boolean }) {
   const { pathname } = useLocation();
   return (
     <AnimatePresence mode="popLayout" initial={false}>
@@ -21,6 +22,7 @@ function PageTransition({ children }: { children: React.ReactNode }) {
         animate="animate"
         exit="exit"
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className={fill ? "h-full" : undefined}
       >
         {children}
       </motion.div>
@@ -31,12 +33,17 @@ function PageTransition({ children }: { children: React.ReactNode }) {
 export function MainLayout() {
   const { isDesktop } = useBreakpoint();
   const { pathname } = useLocation();
+  // A page that manages its own inner scroll (the chat: toolbar, message list and
+  // input stacked in a column) must fill <main> exactly. <main> stops scrolling for
+  // it and the page sizes itself with h-full — no viewport arithmetic, so it cannot
+  // drift by a pixel and leave <main> scrollable.
+  const fillsViewport = pathname.startsWith("/chat");
 
   return (
     <div className="flex flex-col h-dvh app-bg overflow-hidden">
       <Masthead />
-      <main className="scroll-main flex-1 min-h-0 overflow-y-auto">
-        <PageTransition>
+      <main className={cn("scroll-main flex-1 min-h-0", fillsViewport ? "overflow-hidden" : "overflow-y-auto")}>
+        <PageTransition fill={fillsViewport}>
           <Outlet />
         </PageTransition>
       </main>
