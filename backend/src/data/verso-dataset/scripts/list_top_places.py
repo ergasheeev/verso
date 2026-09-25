@@ -1,6 +1,11 @@
+import os
 import re
 
-with open(r"D:\LoneFoundry-projects\verso-dataset\output\index.ts", encoding="utf-8") as f:
+# Dataset ildizi shu faylning joylashuvidan hisoblanadi — qattiq yozilgan
+# yo'l boshqa kompyuterda ishlamaydi.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+with open(os.path.join(BASE_DIR, "output", "index.ts"), encoding="utf-8") as f:
     text = f.read()
 
 # match all place objects

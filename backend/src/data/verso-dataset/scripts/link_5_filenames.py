@@ -4,7 +4,9 @@ import sys
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE_DIR = r"D:\LoneFoundry-projects\verso-dataset"
+# Dataset ildizi shu faylning joylashuvidan hisoblanadi — qattiq yozilgan
+# yo'l boshqa kompyuterda ishlamaydi.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 places_dir = os.path.join(BASE_DIR, "C_images", "places")
 credits_file = os.path.join(BASE_DIR, "C_images", "credits.csv")
 download_list_file = os.path.join(BASE_DIR, "C_images", "download-list.txt")

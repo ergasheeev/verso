@@ -1,8 +1,12 @@
 import os
 import re
 
-base_a = r"D:\LoneFoundry-projects\verso-dataset\A_countries"
-base_uz = r"D:\LoneFoundry-projects\verso-dataset\D_translations\uz"
+# Dataset ildizi shu faylning joylashuvidan hisoblanadi — qattiq yozilgan
+# yo'l boshqa kompyuterda ishlamaydi.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+base_a = os.path.join(BASE_DIR, "A_countries")
+base_uz = os.path.join(BASE_DIR, "D_translations", "uz")
 
 missing_map = {
     'asia': ['ae', 'am', 'az', 'cn', 'ge', 'id', 'in', 'jp', 'kg', 'kz'],

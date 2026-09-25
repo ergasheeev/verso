@@ -11,7 +11,9 @@ from PIL import Image
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE_DIR = r"D:\LoneFoundry-projects\verso-dataset"
+# Dataset ildizi shu faylning joylashuvidan hisoblanadi — qattiq yozilgan
+# yo'l boshqa kompyuterda ishlamaydi.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 index_file = os.path.join(BASE_DIR, "output", "index.ts")
 places_dir = os.path.join(BASE_DIR, "C_images", "places")
 credits_file = os.path.join(BASE_DIR, "C_images", "credits.csv")

@@ -99,7 +99,7 @@ export function loadLocale(lang: Lang): Promise<void> {
  */
 export function initialLang(): Lang {
   try {
-    const raw = localStorage.getItem("trova-v1");
+    const raw = localStorage.getItem("verso-v1");
     if (!raw) return "en";
     const parsed = JSON.parse(raw) as { state?: { lang?: Lang } };
     const lang = parsed?.state?.lang;

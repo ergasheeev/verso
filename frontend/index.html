@@ -28,7 +28,7 @@
     <!-- TODO: a raster og:image is required by platforms that will not
          unfurl an SVG. Replace this with a Verso PNG export; icon-logo.svg
          is the correct mark until then. -->
-    <meta property="og:image" content="https://trovatour.vercel.app/img/logo-s-trova.png" />
+    <meta property="og:image" content="https://trovatour.vercel.app/img/logo-s-verso.png" />
     <meta property="og:image:alt" content="Verso" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:locale:alternate" content="uz_UZ" />
@@ -39,10 +39,10 @@
       name="twitter:description"
       content="An editorial atlas of 51 countries. Expert-curated places, honest prices, AI-built itineraries and local guides."
     />
-    <meta name="twitter:image" content="https://trovatour.vercel.app/img/logo-s-trova.png" />
+    <meta name="twitter:image" content="https://trovatour.vercel.app/img/logo-s-verso.png" />
 
     <link rel="icon" type="image/svg+xml" href="/img/icon-logo.svg" />
-    <link rel="apple-touch-icon" href="/img/logo-s-trova.png" />
+    <link rel="apple-touch-icon" href="/img/logo-s-verso.png" />
     <meta name="apple-mobile-web-app-title" content="Verso" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -78,21 +78,21 @@
       // Applies the saved theme before first paint, so the page never
       // flashes the wrong canvas.
       //
-      // The source of truth is zustand's persisted blob ("trova-v1"); the
-      // standalone "trova-theme" key is only a mirror App.tsx writes for
+      // The source of truth is zustand's persisted blob ("verso-v1"); the
+      // standalone "verso-theme" key is only a mirror App.tsx writes for
       // this script's benefit. Prefer the store, fall back to the mirror,
       // then to dark — this palette is dark-first by design.
       (function () {
         var theme = "dark";
         try {
-          var persisted = localStorage.getItem("trova-v1");
+          var persisted = localStorage.getItem("verso-v1");
           if (persisted) {
             var t = JSON.parse(persisted);
             if (t && t.state && (t.state.theme === "light" || t.state.theme === "dark")) {
               theme = t.state.theme;
             }
           } else {
-            var mirror = localStorage.getItem("trova-theme");
+            var mirror = localStorage.getItem("verso-theme");
             if (mirror === "light" || mirror === "dark") theme = mirror;
           }
         } catch (e) {

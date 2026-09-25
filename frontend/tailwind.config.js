@@ -13,7 +13,7 @@ export default {
     },
     extend: {
       colors: {
-        // ── Trova palette: Midnight + Amber Gold ────────────────────────
+        // ── Verso palette: Midnight + Amber Gold ────────────────────────
         //
         // Semantic tokens first. These resolve through the CSS variables in
         // index.css, so a single class works in both themes and the theme

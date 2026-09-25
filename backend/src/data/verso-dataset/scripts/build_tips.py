@@ -4,7 +4,9 @@ import sys
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE_DIR = r"D:\LoneFoundry-projects\verso-dataset"
+# Dataset ildizi shu faylning joylashuvidan hisoblanadi — qattiq yozilgan
+# yo'l boshqa kompyuterda ishlamaydi.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 output_dir = os.path.join(BASE_DIR, "output")
 os.makedirs(output_dir, exist_ok=True)
 

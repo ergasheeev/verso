@@ -1,7 +1,9 @@
 import os
 from PIL import Image
 
-BASE_DIR = r"D:\LoneFoundry-projects\verso-dataset"
+# Dataset ildizi shu faylning joylashuvidan hisoblanadi — qattiq yozilgan
+# yo'l boshqa kompyuterda ishlamaydi.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 for sub in ["countries", "places"]:
     img_dir = os.path.join(BASE_DIR, "C_images", sub)

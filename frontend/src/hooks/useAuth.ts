@@ -30,7 +30,7 @@ export function useAuth(): UseAuthReturn {
   const closeAuthModal = useAppStore((s) => s.closeAuthModal);
 
   const checkAuth = useCallback(async () => {
-    const token = localStorage.getItem("trova-token");
+    const token = localStorage.getItem("verso-token");
     if (!token) return;
     try {
       const me = await apiClient.get<User>("/auth/me");
@@ -41,7 +41,7 @@ export function useAuth(): UseAuthReturn {
       // it would otherwise wipe the user's profile on a flaky connection.
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
-        localStorage.removeItem("trova-token");
+        localStorage.removeItem("verso-token");
         logout();
       }
     }

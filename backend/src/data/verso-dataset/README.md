@@ -2,7 +2,7 @@
 
 **42 ta mamlakat bo'yicha Verso sayohat atlasining to'liq dataset loyihasi.**
 
-Bu papka `trovatour` loyihasi uchun barcha mazmun ma'lumotlarini tayyorlaydi:
+Bu papka `verso` loyihasi uchun barcha mazmun ma'lumotlarini tayyorlaydi:
 mamlakat matnlari, joylar, rasmlar va tarjimalar.
 
 ---
@@ -21,7 +21,7 @@ mamlakat matnlari, joylar, rasmlar va tarjimalar.
 ## Ish Tartibi
 
 ```
-A → B → C → D → validate → build → output → trovatour ga ko'chir
+A → B → C → D → validate → build → output → verso ga ko'chir
 ```
 
 ## Tezkor Boshlash

@@ -129,7 +129,7 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
     }),
     {
-      name: "trova-v1",
+      name: "verso-v1",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,

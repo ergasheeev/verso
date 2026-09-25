@@ -145,7 +145,7 @@ function VerifyStep({
       const res = await apiClient.post<{ user: User; accessToken: string }>(
         "/auth/verify-email", { email, code: value }
       );
-      localStorage.setItem("trova-token", res.accessToken);
+      localStorage.setItem("verso-token", res.accessToken);
       onVerified(res.user);
     } catch (err: unknown) {
       setError(extractAuthError(err, t("auth", "err_verify")));
@@ -393,7 +393,7 @@ function ForgotPassword({
         "/auth/reset-password",
         { email: email.trim().toLowerCase(), code, newPassword: password },
       );
-      localStorage.setItem("trova-token", res.accessToken);
+      localStorage.setItem("verso-token", res.accessToken);
       setStage("done");
       setTimeout(() => onDone(res.user), 1100);
     } catch (err: unknown) {
@@ -533,7 +533,7 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
       const res = await apiClient.post<{ user: User; accessToken: string }>(
         "/auth/login", { email: email.trim().toLowerCase(), password }
       );
-      localStorage.setItem("trova-token", res.accessToken);
+      localStorage.setItem("verso-token", res.accessToken);
       finishLogin(res.user);
     } catch (err: unknown) {
       const code = isAxiosError<{ code?: string }>(err) ? err.response?.data?.code : undefined;

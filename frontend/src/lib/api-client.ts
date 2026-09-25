@@ -22,7 +22,7 @@ const instance = axios.create({
 });
 
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem("trova-token");
+  const token = localStorage.getItem("verso-token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -61,11 +61,11 @@ instance.interceptors.response.use(
       orig._retry = true;
       const newToken = await refreshAccessToken();
       if (newToken) {
-        localStorage.setItem("trova-token", newToken);
+        localStorage.setItem("verso-token", newToken);
         if (orig.headers) orig.headers.Authorization = `Bearer ${newToken}`;
         return instance(orig);
       }
-      localStorage.removeItem("trova-token");
+      localStorage.removeItem("verso-token");
     }
     return Promise.reject(err);
   }

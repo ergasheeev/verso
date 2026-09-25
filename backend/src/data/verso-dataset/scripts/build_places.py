@@ -2,7 +2,9 @@ import os
 import re
 import json
 
-BASE_DIR = r"D:\LoneFoundry-projects\verso-dataset"
+# Dataset ildizi shu faylning joylashuvidan hisoblanadi — qattiq yozilgan
+# yo'l boshqa kompyuterda ishlamaydi.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 b_dir = os.path.join(BASE_DIR, "B_places")
 out_file = os.path.join(BASE_DIR, "output", "index.ts")
 

@@ -11,7 +11,9 @@ from datetime import datetime
 
 sys.stdout.reconfigure(encoding='utf-8')
 USER_AGENT = 'VersoDatasetRefiner/1.0 (https://verso.travel; contact@verso.travel)'
-BASE_DIR = r'D:\LoneFoundry-projects\verso-dataset'
+# Dataset ildizi shu faylning joylashuvidan hisoblanadi — qattiq yozilgan
+# yo'l boshqa kompyuterda ishlamaydi.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COUNTRIES_IMG_DIR = os.path.join(BASE_DIR, 'C_images', 'countries')
 CREDITS_PATH = os.path.join(BASE_DIR, 'C_images', 'credits.csv')
 DOWNLOAD_LIST_PATH = os.path.join(BASE_DIR, 'C_images', 'download-list.txt')

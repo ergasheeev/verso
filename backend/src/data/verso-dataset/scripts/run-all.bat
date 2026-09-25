@@ -32,10 +32,10 @@ echo ==========================================
 echo   ✅ TAYYOR! output\ papkasini koring.
 echo ==========================================
 echo.
-echo Keyingi qadam: output\ fayllarini trovatour loyihasiga ko'chiring.
-echo   output\countries.ts       → trovatour\frontend\src\data\countries.ts
-echo   output\index.ts           → trovatour\frontend\src\data\index.ts
-echo   output\countries.i18n.ts  → trovatour\frontend\src\data\countries.i18n.ts
-echo   output\knowledge-base.ts  → trovatour\backend\src\data\knowledge-base.ts
+echo Keyingi qadam: output\ fayllarini verso loyihasiga ko'chiring.
+echo   output\countries.ts       → verso\frontend\src\data\countries.ts
+echo   output\index.ts           → verso\frontend\src\data\index.ts
+echo   output\countries.i18n.ts  → verso\frontend\src\data\countries.i18n.ts
+echo   output\knowledge-base.ts  → verso\backend\src\data\knowledge-base.ts
 echo.
 pause
