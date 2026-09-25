@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { env } from "@/config/env";
+import type { Location } from "@prisma/client";
 import { KNOWLEDGE_BASE, selectKnowledge } from "@/data/knowledge-base";
 import { selectGlobalKnowledge } from "@/data/global-knowledge-base";
 import { createError } from "@/middleware/error-handler";
@@ -81,6 +82,7 @@ export interface UserContext  {
   /** Reader is on a phone — see the LENGTH rule in the system prompt. */
   compact?: boolean;
 }
+export interface TourData     { days: string; people: string; regions: string[]; budget: string; }
 
 // Human-readable names the model can act on reliably — passing the raw
 // locale code ("zh") alone was less consistent than naming the language.
@@ -247,6 +249,51 @@ one answer — which is what this rule exists to prevent.
   });
   return getText(response);
 }
+
+// ── generateTourPlan ────────────────────────────────────
+export async function generateTourPlan(tourData: TourData, locations: Location[]): Promise<string> {
+  const list = locations
+    .map((l) => `• ${l.name} (${l.city}): ${l.shortDesc ?? ""} — ~$${l.priceUSD}`)
+    .join("\n");
+
+  const response = await callGroq(() => client.chat.completions.create({
+    model: MODEL,
+    max_tokens: 3000,
+    messages: [
+      {
+        role: "system",
+        content: `Sen Verso platformasining professional tur rejasi generatorisan. Quyidagi ma'lumotlar bazasidagi HAQIQIY narx va vaqtlarni ishlat:\n${KNOWLEDGE_BASE}`,
+      },
+      {
+        role: "user",
+        content: `Quyidagi parametrlar asosida PROFESSIONAL tur rejasi tuz:
+Davomiylik: ${tourData.days} kun
+Kishilar: ${tourData.people}
+Viloyatlar: ${tourData.regions.join(", ")}
+Byudjet: ${tourData.budget}
+
+Borilishi kerak bo'lgan joylar:
+${list || "Barcha mashhur joylar (ma'lumotlar bazasidan tanlang)"}
+
+Markdown formatida yoz. EMOJI HECH QACHON ishlatma, bayroq-emoji va
+═ ║ ╔ ╚ ━ kabi chizuvchi belgilarni ham ishlatma — ovoz professional
+va sokin bo'lishi kerak:
+
+### N-kun — Shahar
+**Ertalab (09:00–13:00):** joy — vaqt — narx so'mda/$da
+**Tushlik (13:00–14:30):** restoran — taom — narx
+**Tushdan keyin (15:00–18:00):** joy — vaqt — narx
+**Kechqurun (19:00–21:00):** faoliyat
+**Tunash:** mehmonxona — narx/kecha
+**Kunlik jami:** ~X so'm (~$Y)
+
+Oxirida "### Umumiy xulosa" (kirish biletlari / turar joy / ovqat / transport / jami) va "### Maslahatlar" bo'limlari.`,
+      },
+    ],
+  }));
+  return getText(response);
+}
+
 
 // ── translate ───────────────────────────────────────────
 // Backs the voice translator: someone speaks in one language, this returns

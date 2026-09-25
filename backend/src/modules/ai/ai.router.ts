@@ -1,7 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { z } from "zod";
 import * as aiService from "./ai.service";
-import { optionalAuth } from "@/middleware/auth.middleware";
+import { prisma } from "@/lib/prisma";
+import { optionalAuth, authenticate } from "@/middleware/auth.middleware";
 import { validateBody } from "@/middleware/validate";
 import { sendSuccess } from "@/utils/response";
 
@@ -26,6 +27,16 @@ const chatSchema = z.object({
      */
     compact: z.boolean().optional(),
   }).optional(),
+});
+
+const tourPlanSchema = z.object({
+  tourData: z.object({
+    days:    z.string().min(1),
+    people:  z.string().min(1),
+    regions: z.array(z.string()).min(1),
+    budget:  z.string().min(1),
+  }),
+  locationIds: z.array(z.string()).optional(),
 });
 
 const translateSchema = z.object({
@@ -66,6 +77,35 @@ aiRouter.post("/translate", optionalAuth, validateBody(translateSchema),
       const { text, from, to } = req.body as z.infer<typeof translateSchema>;
       const translation = await aiService.translate(text, from, to);
       sendSuccess(res, { translation });
+    } catch (err) { next(err); }
+  }
+);
+
+// ── POST /api/ai/tour-plan (auth required) ────────────
+aiRouter.post("/tour-plan", authenticate, validateBody(tourPlanSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { tourData, locationIds } = req.body as z.infer<typeof tourPlanSchema>;
+
+      let locations;
+      if (locationIds?.length) {
+        locations = await prisma.location.findMany({ where: { id: { in: locationIds } } });
+      } else {
+        const regionFilters = tourData.regions.map((r) => ({
+          OR: [
+            { region: { contains: r, mode: "insensitive" as const } },
+            { city:   { contains: r, mode: "insensitive" as const } },
+          ],
+        }));
+        locations = await prisma.location.findMany({
+          where:   { OR: regionFilters },
+          orderBy: { rating: "desc" },
+          take:    15,
+        });
+      }
+
+      const plan = await aiService.generateTourPlan(tourData, locations);
+      sendSuccess(res, { plan });
     } catch (err) { next(err); }
   }
 );
