@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 /**
  * A small, purpose-built markdown renderer for AI replies — not a full
  * CommonMark engine, just the subset the model actually emits: `---` rules,
- * `####` sub-headings, `*italic*` and `code` spans. Anything else
+ * `####` sub-headings, `*italic*`, `code` spans and pipe tables. Anything else
  * falls through as plain text.
  */
 
@@ -66,6 +66,11 @@ function inline(text: string, keyPrefix: string): React.ReactNode[] {
   });
 }
 
+const isTableRow = (l: string) => /^\s*\|.*\|\s*$/.test(l);
+const isTableDivider = (l: string) => /^\s*\|[\s:|-]+\|\s*$/.test(l.trim());
+const splitRow = (l: string) =>
+  l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+
 export function MessageContent({ text }: { text: string }) {
   const lines = text.split("\n");
   const blocks: React.ReactNode[] = [];
@@ -117,6 +122,48 @@ export function MessageContent({ text }: { text: string }) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trimEnd();
     const key = `b${i}`;
+
+    // ── Table ──────────────────────────────────────────────
+    // A header row followed by a |---|---| divider. Without this the
+    // pipes reached the reader verbatim, three rows of punctuation.
+    if (isTableRow(line) && i + 1 < lines.length && isTableDivider(lines[i + 1])) {
+      flushAll(key);
+      const header = splitRow(line);
+      const rows: string[][] = [];
+      let j = i + 2;
+      while (j < lines.length && isTableRow(lines[j])) {
+        rows.push(splitRow(lines[j]));
+        j++;
+      }
+      blocks.push(
+        <div key={key} className="my-4 overflow-x-auto">
+          <table className="w-full text-[13.5px] border-collapse">
+            <thead>
+              <tr>
+                {header.map((h, hi) => (
+                  <th key={hi} className="kicker text-left pb-2 pr-4 hairline-b font-normal">
+                    {inline(h, `${key}-h${hi}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri}>
+                  {r.map((c, ci) => (
+                    <td key={ci} className="py-2.5 pr-4 align-top hairline-b last:pr-0">
+                      {inline(c, `${key}-r${ri}c${ci}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      i = j - 1;
+      continue;
+    }
 
     const bullet = /^[•\-*]\s+(.*)/.exec(line);
     const numbered = /^(\d+)[.)]\s+(.*)/.exec(line);
