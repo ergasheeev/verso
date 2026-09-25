@@ -7,6 +7,7 @@ import Auth from "@/pages/Auth";
 import Chat from "@/pages/Chat";
 import Locations from "@/pages/Locations";
 import LocationDetail from "@/pages/LocationDetail";
+import Atlas from "@/pages/Atlas";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/signup" element={<Auth />} />
         <Route element={<MainLayout />}>
           <Route path="/"              element={<Landing />} />
+          <Route path="/atlas"         element={<Atlas />} />
           <Route path="/chat"          element={<Chat />} />
           <Route path="/locations"     element={<Locations />} />
           <Route path="/locations/:id" element={<LocationDetail />} />
