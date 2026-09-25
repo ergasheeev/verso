@@ -4,6 +4,7 @@ import { Masthead } from "./Masthead";
 import { BottomNav } from "./BottomNav";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { cn } from "@/lib/utils";
+import { ScrollProgress } from "@/components/ui/ScrollMotion";
 
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
@@ -42,6 +43,7 @@ export function MainLayout() {
   return (
     <div className="flex flex-col h-dvh app-bg overflow-hidden">
       <Masthead />
+      <ScrollProgress />
       <main className={cn("scroll-main flex-1 min-h-0", fillsViewport ? "overflow-hidden" : "overflow-y-auto")}>
         <PageTransition fill={fillsViewport}>
           <Outlet />
