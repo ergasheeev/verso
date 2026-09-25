@@ -92,10 +92,12 @@ app.get("/health", (_req, res) => {
 });
 
 // ── API Routes ────────────────────────────────────────
-import { authRouter } from "@/modules/auth/auth.router";
-import { aiRouter }   from "@/modules/ai/ai.router";
+import { authRouter }     from "@/modules/auth/auth.router";
+import { locationRouter } from "@/modules/locations/location.router";
+import { aiRouter }       from "@/modules/ai/ai.router";
 
 app.use("/api/auth",      authRouter);
+app.use("/api/locations", locationRouter);
 app.use("/api/ai",        aiRouter);
 
 // ── 404 handler ───────────────────────────────────────
