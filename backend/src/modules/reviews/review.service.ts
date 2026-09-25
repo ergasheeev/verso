@@ -1,5 +1,6 @@
 import { type Review } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import * as aiService from "@/modules/ai/ai.service";
 import { createError } from "@/middleware/error-handler";
 import { buildPagination } from "@/utils/response";
 
@@ -70,7 +71,22 @@ export async function create(dto: CreateReviewDto): Promise<Review> {
   // Step 2: update location rating
   await recalcRating(dto.locationId);
 
-  return review;
+  // Step 3: AI analysis + update (non-fatal)
+  try {
+    const analysis = await aiService.analyzeReview(dto.text, dto.stars);
+    const updated = await prisma.review.update({
+      where: { id: review.id },
+      data: {
+        trustScore: analysis.trustScore,
+        aiTags:     analysis.aiTags,
+        verified:   analysis.verified,
+      },
+    });
+    return updated;
+  } catch (err) {
+    console.warn("[review.service] AI analysis failed:", (err as Error).message);
+    return review;
+  }
 }
 
 // ── deleteById ─────────────────────────────────────────

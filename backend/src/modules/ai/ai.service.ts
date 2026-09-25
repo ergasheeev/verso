@@ -83,6 +83,7 @@ export interface UserContext  {
   compact?: boolean;
 }
 export interface TourData     { days: string; people: string; regions: string[]; budget: string; }
+export interface AnalysisResult   { trustScore: number; aiTags: string[]; verified: boolean; }
 
 // Human-readable names the model can act on reliably — passing the raw
 // locale code ("zh") alone was less consistent than naming the language.
@@ -248,6 +249,39 @@ one answer — which is what this rule exists to prevent.
     ],
   });
   return getText(response);
+}
+
+// ── analyzeReview ───────────────────────────────────────
+export async function analyzeReview(text: string, stars: number): Promise<AnalysisResult> {
+  const response = await callGroq(() => client.chat.completions.create({
+    model: MODEL,
+    max_tokens: 200,
+    messages: [
+      {
+        role: "system",
+        content: `Return ONLY valid JSON, no markdown:
+{"trustScore":number,"aiTags":string[]}
+trustScore: 70-100=genuine detail, 40-69=generic/short, 0-39=spam/bot
+aiTags: 2-4 uzbek topic keywords`,
+      },
+      { role: "user", content: `Review (${stars} stars): "${text}"` },
+    ],
+  }));
+
+  const raw = getText(response).trim();
+  try {
+    const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as { trustScore: number; aiTags: string[] };
+    return {
+      trustScore: Math.max(0, Math.min(100, Math.round(parsed.trustScore))),
+      aiTags:     Array.isArray(parsed.aiTags) ? parsed.aiTags.slice(0, 4) : [],
+      verified:   parsed.trustScore >= 70,
+    };
+  } catch {
+    const len = text.trim().length;
+    const trustScore = len > 120 ? 72 : len > 50 ? 55 : 28;
+    return { trustScore, aiTags: [], verified: trustScore >= 70 };
+  }
 }
 
 // ── generateTourPlan ────────────────────────────────────

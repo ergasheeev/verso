@@ -39,6 +39,8 @@ const tourPlanSchema = z.object({
   locationIds: z.array(z.string()).optional(),
 });
 
+const analyzeSchema  = z.object({ text: z.string().min(5).max(1000), stars: z.number().int().min(1).max(5) });
+
 const translateSchema = z.object({
   text: z.string().min(1).max(2000),
   from: z.string().min(2).max(8),
@@ -66,6 +68,17 @@ aiRouter.post("/chat", optionalAuth, validateBody(chatSchema),
         compact: userContext?.compact,
       });
       sendSuccess(res, { reply });
+    } catch (err) { next(err); }
+  }
+);
+
+// ── POST /api/ai/analyze-review ───────────────────────
+aiRouter.post("/analyze-review", optionalAuth, validateBody(analyzeSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { text, stars } = req.body as z.infer<typeof analyzeSchema>;
+      const result = await aiService.analyzeReview(text, stars);
+      sendSuccess(res, result);
     } catch (err) { next(err); }
   }
 );
