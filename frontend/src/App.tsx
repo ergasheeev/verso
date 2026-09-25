@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/Toaster";
 import Landing from "@/pages/Landing";
 import Auth from "@/pages/Auth";
 import Chat from "@/pages/Chat";
+import Locations from "@/pages/Locations";
 
 export default function App() {
   return (
@@ -13,8 +14,9 @@ export default function App() {
         <Route path="/login"  element={<Auth />} />
         <Route path="/signup" element={<Auth />} />
         <Route element={<MainLayout />}>
-          <Route path="/"     element={<Landing />} />
-          <Route path="/chat" element={<Chat />} />
+          <Route path="/"          element={<Landing />} />
+          <Route path="/chat"      element={<Chat />} />
+          <Route path="/locations" element={<Locations />} />
         </Route>
       </Routes>
       <AuthModal />
