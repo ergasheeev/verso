@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { plateHue } from "@/data/countries";
 
 /**
  * A country flag as an image, not an emoji.
@@ -22,7 +23,7 @@ export function Flag({
   /** sm = inline with body text, md = list rows, lg = headers. */
   size?: "sm" | "md" | "lg";
   className?: string;
-  /** Fill the parent box edge to edge instead of a fixed size. */
+  /** Fill the parent box edge to edge (see FlagTile) instead of a fixed size. */
   fill?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
@@ -46,6 +47,8 @@ export function Flag({
 
   return (
     <img
+      // Tiles render up to ~90px wide, so they pull the 160px source; the
+      // 40px one is only sharp at the small inline sizes.
       src={`https://flagcdn.com/${fill ? "w160" : "w40"}/${lower}.png`}
       srcSet={`https://flagcdn.com/${fill ? "w320" : "w80"}/${lower}.png 2x`}
       alt=""
@@ -60,5 +63,36 @@ export function Flag({
         className,
       )}
     />
+  );
+}
+
+const TILE = { sm: "w-9 h-6", md: "w-12 h-8", lg: "w-[88px] h-[58px]" } as const;
+
+/**
+ * The flag as an icon: a 3:2 tile the flag fills edge to edge.
+ *
+ * This replaced a square "plate" with a 28x20 flag centred inside it — most
+ * of the tile was bare beige. The tile is now the flag's own 3:2 shape, so
+ * `object-cover` crops nothing and there is no padding to leave empty; the
+ * plate wash underneath only shows if the flag image fails to load (the
+ * fallback chip in <Flag> then sits on it).
+ */
+export function FlagTile({
+  code,
+  size = "md",
+  className,
+}: {
+  code: string;
+  size?: keyof typeof TILE;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn("plate relative shrink-0 inline-block overflow-hidden rounded-md", TILE[size], className)}
+      style={{ "--plate-h": plateHue(code) } as React.CSSProperties}
+    >
+      <Flag code={code} fill />
+    </span>
   );
 }
