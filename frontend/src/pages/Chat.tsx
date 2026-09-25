@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Send, Loader2, RotateCcw, Copy, Check, RefreshCw, ChevronDown,
   ThumbsUp, ThumbsDown, Landmark, Hotel, Bus, Star as StarIcon,
-  Lightbulb, AlertTriangle, Square, Mic, Languages,
+  Lightbulb, AlertTriangle, Square, Mic, History, Languages,
 } from "lucide-react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { isAxiosError } from "axios";
@@ -13,6 +13,7 @@ import { useAppStore } from "@/store";
 import { useTranslation, LOCALE_TAGS } from "@/i18n";
 import { MessageContent } from "@/components/chat/MessageContent";
 import { VoiceTranslator } from "@/components/chat/VoiceTranslator";
+import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
 import { Mark } from "@/components/brand/Wordmark";
 import { Kicker, Rule, Button } from "@/components/ui/editorial";
 import { plateHue } from "@/data/countries";
@@ -96,6 +97,64 @@ function saveHistory(messages: Message[]) {
   }
 }
 
+/**
+ * Past conversations — separate from the single active thread above.
+ *
+ * verso-chat-v1 (HISTORY_KEY) is the CURRENT conversation, re-read on mount so it
+ * survives a reload. verso-chat-threads-v1 is the list of archived ones: a
+ * conversation is archived when you leave it (New chat, or opening a different
+ * past thread) and comes back out of the list — not duplicated into it — when
+ * reopened.
+ */
+export interface ChatThread {
+  id: string;
+  title: string;
+  messages: Message[];
+  /** Epoch ms of the thread's last message — what the panel sorts and
+   *  formats by. */
+  updatedAt: number;
+}
+
+const THREADS_KEY = "verso-chat-threads-v1";
+const THREADS_LIMIT = 30;
+
+function loadThreads(): ChatThread[] {
+  try {
+    const raw = localStorage.getItem(THREADS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as (Omit<ChatThread, "messages"> & {
+      messages: (Omit<Message, "timestamp"> & { timestamp: string })[];
+    })[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((th) => ({
+      ...th,
+      messages: th.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) })),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function saveThreads(threads: ChatThread[]) {
+  try {
+    if (threads.length === 0) localStorage.removeItem(THREADS_KEY);
+    else localStorage.setItem(THREADS_KEY, JSON.stringify(threads.slice(0, THREADS_LIMIT)));
+  } catch {
+    // Same trade-off as saveHistory: losing the archive is not worth
+    // breaking the page over.
+  }
+}
+
+/** First real thing the visitor said, trimmed to a list-row length. A
+ *  thread that never got a user turn (only ever showed the welcome
+ *  message) never reaches this — archiveThread below skips empty ones. */
+function deriveTitle(messages: Message[], fallback: string): string {
+  const firstUser = messages.find((m) => m.role === "user");
+  if (!firstUser) return fallback;
+  const text = firstUser.content.trim().replace(/s+/g, " ");
+  return text.length > 64 ? text.slice(0, 61) + "…" : text;
+}
+
 export default function Chat() {
   const plan = useAppStore((s) => s.plan);
   const showToast = useAppStore((s) => s.showToast);
@@ -123,6 +182,8 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [threads, setThreads] = useState<ChatThread[]>(() => loadThreads());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const lastUserTextRef = useRef("");
@@ -299,11 +360,69 @@ export default function Chat() {
     }
   }
 
+  // Moves the current conversation into the archive, unless it never had a
+  // real turn in it (a fresh welcome-only thread is not worth a history
+  // entry). Shared by "New chat" and by opening a different past thread —
+  // both are "I am done looking at this conversation for now".
+  function archiveThread(current: Message[]) {
+    const real = current.filter((m) => m.id !== "welcome");
+    if (real.length === 0) return;
+    const last = real[real.length - 1];
+    const thread: ChatThread = {
+      // Derived from the first real message's own id rather than a fresh
+      // random one, so archiving the same still-open thread twice (e.g. the
+      // effect below saves on every message, and resetChat archives again
+      // on the way out) updates one row instead of appending duplicates.
+      id: `t-${real[0].id}`,
+      title: deriveTitle(real, t("chat", "history_untitled")),
+      messages: real,
+      updatedAt: last.timestamp.getTime(),
+    };
+    setThreads((prev) => {
+      const next = [thread, ...prev.filter((x) => x.id !== thread.id)].slice(0, THREADS_LIMIT);
+      saveThreads(next);
+      return next;
+    });
+  }
+
   function resetChat() {
+    archiveThread(messages);
     setMessages([makeWelcomeMessage()]);
     setInput("");
     lastUserTextRef.current = "";
     saveHistory([]);
+  }
+
+  // Reopening a past conversation removes it from the archive — it is the
+  // active thread again now, not a past one, and leaving it a second time
+  // (via archiveThread above) puts it straight back.
+  function openThread(id: string) {
+    const thread = threads.find((x) => x.id === id);
+    if (!thread) return;
+    archiveThread(messages);
+    setThreads((prev) => {
+      const next = prev.filter((x) => x.id !== id);
+      saveThreads(next);
+      return next;
+    });
+    setMessages(thread.messages);
+    saveHistory(thread.messages);
+    setInput("");
+    lastUserTextRef.current = "";
+    setHistoryOpen(false);
+  }
+
+  function deleteThread(id: string) {
+    setThreads((prev) => {
+      const next = prev.filter((x) => x.id !== id);
+      saveThreads(next);
+      return next;
+    });
+  }
+
+  function clearAllThreads() {
+    setThreads([]);
+    saveThreads([]);
   }
 
   useEffect(() => {
@@ -370,6 +489,16 @@ export default function Chat() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setHistoryOpen(true)}
+              aria-label={t("chat", "history")}
+              title={t("chat", "history")}
+              className="tap-44 flex items-center justify-center w-8 h-8 rounded-sm border border-[var(--border)]
+                         text-subtle hover:border-[var(--gold-hairline)] hover:text-accent
+                         transition-colors duration-400"
+            >
+              <History className="w-3.5 h-3.5" aria-hidden />
+            </button>
             {/* A gold-tinted, labelled pill matching "New chat" in shape, so the voice
                 translator carries the same visual weight as its neighbours. It has a matching
                 entry in the empty-screen quick actions for a first-time visitor who has not
@@ -401,6 +530,15 @@ export default function Chat() {
       </div>
 
       <VoiceTranslator open={voiceOpen} onClose={() => setVoiceOpen(false)} />
+      <ChatHistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        threads={threads}
+        onOpenThread={openThread}
+        onDeleteThread={deleteThread}
+        onClearAll={clearAllThreads}
+      />
+
       {/* ── The conversation ───────────────────────────── */}
       <div className="relative flex-1 overflow-hidden">
         <div
