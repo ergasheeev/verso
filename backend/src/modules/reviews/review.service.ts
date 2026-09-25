@@ -13,6 +13,15 @@ export interface CreateReviewDto {
   userId?:    string;
 }
 
+export interface ReviewStats {
+  avgRating:  number;
+  trustIndex: number;
+  verified:   number;
+  suspicious: number;
+  fake:       number;
+  total:      number;
+}
+
 // ── Helper: recalculate location rating ───────────────
 async function recalcRating(locationId: string): Promise<void> {
   const agg = await prisma.review.aggregate({
@@ -87,6 +96,29 @@ export async function create(dto: CreateReviewDto): Promise<Review> {
     console.warn("[review.service] AI analysis failed:", (err as Error).message);
     return review;
   }
+}
+
+// ── getStats ───────────────────────────────────────────
+export async function getStats(locationId: string): Promise<ReviewStats> {
+  const [agg, total, verified, suspicious, fake] = await Promise.all([
+    prisma.review.aggregate({
+      where: { locationId },
+      _avg:  { stars: true, trustScore: true },
+    }),
+    prisma.review.count({ where: { locationId } }),
+    prisma.review.count({ where: { locationId, trustScore: { gte: 70 } } }),
+    prisma.review.count({ where: { locationId, trustScore: { gte: 40, lt: 70 } } }),
+    prisma.review.count({ where: { locationId, trustScore: { lt: 40 } } }),
+  ]);
+
+  return {
+    avgRating:  Math.round((agg._avg.stars ?? 0) * 10) / 10,
+    trustIndex: Math.round(agg._avg.trustScore ?? 0),
+    total,
+    verified,
+    suspicious,
+    fake,
+  };
 }
 
 // ── deleteById ─────────────────────────────────────────

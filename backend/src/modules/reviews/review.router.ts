@@ -49,6 +49,20 @@ reviewRouter.get(
   }
 );
 
+// ── GET /api/reviews/:locationId/stats ────────────────
+reviewRouter.get(
+  "/:locationId/stats",
+  validateParams(idParamSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const stats = await reviewService.getStats(req.params.locationId);
+      sendSuccess(res, stats);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // ── POST /api/reviews ─────────────────────────────────
 reviewRouter.post(
   "/",
