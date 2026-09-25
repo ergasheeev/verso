@@ -78,6 +78,8 @@ export interface UserContext  {
   name?: string; country?: string; plan?: string; lang?: string;
   /** "fast" | "deep"; anything else falls back to the default model. */
   model?: string;
+  /** Reader is on a phone — see the LENGTH rule in the system prompt. */
+  compact?: boolean;
 }
 
 // Human-readable names the model can act on reliably — passing the raw
@@ -185,13 +187,62 @@ ber — hech qachon "bu joy haqida ma'lumotim yo'q" deb javobni rad etma.
 
 ${globalHit}` : ""}
 
-Noaniq, taxminiy javob berma — aniq bo'l. Emoji ishlatma.`;
+Noaniq, taxminiy javob berma — aniq bo'l. Emoji ishlatma.
 
+LENGTH AND SHAPE (applies to every reply except a full tour plan):
+${ctx.compact ? `The reader is on a PHONE. A 390px screen fits about 40
+characters a line, so 150 words is a screen and a half of scrolling for
+one answer — which is what this rule exists to prevent.
+- HARD LIMIT: 90 words. Count them. Going over is a failure, not a
+  thoroughness bonus
+- Lead with the answer in the first sentence. No preamble, no restating
+  the question, no "great question"
+- NEVER use a markdown table. Three columns at 390px is unreadable.
+  Use at most 3 short bullets instead, or plain sentences
+- At most 2 short paragraphs
+- No headings — the answer is too short to need them
+- If the honest answer needs more room, give the 90-word version and end
+  with one line offering to go deeper` : `The reader is on a wide screen.
+- Simple questions: 100–150 words. Markdown optional
+- Tables are fine when the data really is tabular (3+ rows being compared)
+- Lead with the answer; never open with a restatement of the question`}`;
+
+  // Only the conversational endpoint is tier-selectable. Translation stays
+  // pinned to the default: it is graded against one model's output and a
+  // reader never chose a tier for it.
+  // The phone rule goes in its own system turn AFTER the conversation, not
+  // inside the main prompt.
+  //
+  // It was at the end of the ~120-line system message first, and measurement
+  // said the fast tier simply did not apply it: same questions with and
+  // without `compact` came back 171 vs 169 words, both with markdown tables.
+  // A small model weights the end of the context far more heavily than a
+  // clause buried behind a knowledge base, so the constraint is repeated
+  // here, last, where it is the freshest thing in the window.
+  const compactRule = ctx.compact
+    ? [{
+        role: "system" as const,
+        content:
+          "REMINDER, overrides anything above: the reader is on a phone. " +
+          "Answer in 90 words or fewer. No markdown tables. No headings. " +
+          "At most 3 short bullets. Lead with the answer. If more detail " +
+          "would help, end with one short line offering it.",
+      }]
+    : [];
+
+  // Only the conversational endpoint is tier-selectable. Translation stays
+  // pinned to the default: it is graded against one model's output and a
+  // reader never chose a tier for it.
   const response = await chatCompletion(ctx.model, {
+    // Not lowered for the phone. gpt-oss is a reasoning model whose reasoning tokens
+    // come out of this same budget: at max_tokens 700 the visible answer was truncated
+    // (finish_reason "length"); 1200 and 1800 finish cleanly. Answer length is
+    // controlled by the prompt, not the token budget.
     max_tokens: 1800,
     messages: [
       { role: "system", content: system },
       ...messages.slice(-14),
+      ...compactRule,
     ],
   });
   return getText(response);

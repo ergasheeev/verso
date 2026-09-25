@@ -19,6 +19,12 @@ const chatSchema = z.object({
     lang:    z.string().optional(),
     // A tier name, never a Groq model id — the enum is the allowlist.
     model:   z.enum(["fast", "deep"]).optional(),
+    /**
+     * The reader is on a phone. Not a device string — just the one bit the
+     * answer's shape depends on, so nothing identifying is sent and the
+     * value cannot carry anything but true/false.
+     */
+    compact: z.boolean().optional(),
   }).optional(),
 });
 
@@ -46,6 +52,7 @@ aiRouter.post("/chat", optionalAuth, validateBody(chatSchema),
         plan:    userContext?.plan,
         lang:    userContext?.lang,
         model,
+        compact: userContext?.compact,
       });
       sendSuccess(res, { reply });
     } catch (err) { next(err); }

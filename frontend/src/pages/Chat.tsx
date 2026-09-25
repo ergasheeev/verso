@@ -12,11 +12,13 @@ import { apiClient } from "@/lib/api-client";
 import { useAppStore } from "@/store";
 import { useTranslation, LOCALE_TAGS } from "@/i18n";
 import { MessageContent } from "@/components/chat/MessageContent";
+import { CollapsibleAnswer } from "@/components/chat/CollapsibleAnswer";
 import { VoiceTranslator } from "@/components/chat/VoiceTranslator";
 import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
 import { Mark } from "@/components/brand/Wordmark";
 import { Kicker, Rule, Button } from "@/components/ui/editorial";
 import { plateHue } from "@/data/countries";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 /**
  * The assistant.
@@ -159,6 +161,7 @@ export default function Chat() {
   const plan = useAppStore((s) => s.plan);
   const showToast = useAppStore((s) => s.showToast);
   const { t, lang } = useTranslation();
+  const { isMobile } = useBreakpoint();
   useDocumentTitle(t("chat", "title"));
 
   function makeWelcomeMessage(): Message {
@@ -262,9 +265,13 @@ export default function Chat() {
         "/ai/chat",
         // `lang` is the interface locale — the model answers in it by default, but still
         // switches to whatever language this particular message was typed in.
+        // `compact` tells the model it is writing for a phone. A 390px screen fits about
+        // 40 characters a line, so 100–150 words become a screen and a half of
+        // scrolling. The prompt turns that into a hard 90-word limit and forbids tables,
+        // the worst case at this width.
         {
           messages: apiMessages,
-          userContext: { plan: buildPlanContext(), lang },
+          userContext: { plan: buildPlanContext(), lang, compact: isMobile },
         },
         { timeout: 45_000, signal: controller.signal },
       );
@@ -620,7 +627,16 @@ export default function Chat() {
                             msg.isError ? "text-copper-400" : "text-ink",
                           )}
                         >
-                          <MessageContent text={msg.content} />
+                          <CollapsibleAnswer
+                            // Only on a phone, only for a finished reply:
+                            // clamping something still streaming would
+                            // fight the text as it arrives.
+                            enabled={isMobile && msg.role === "assistant" && !msg.isError && !isLoading}
+                            moreLabel={t("chat", "read_more")}
+                            lessLabel={t("chat", "read_less")}
+                          >
+                            <MessageContent text={msg.content} />
+                          </CollapsibleAnswer>
                         </div>
 
                         {msg.isError && (
