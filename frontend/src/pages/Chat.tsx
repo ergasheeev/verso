@@ -2,7 +2,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Send, Loader2, RotateCcw, Copy, Check, RefreshCw, ChevronDown,
-  Landmark, Hotel, Bus, Star as StarIcon, Lightbulb, AlertTriangle, Square,
+  ThumbsUp, ThumbsDown, Landmark, Hotel, Bus, Star as StarIcon,
+  Lightbulb, AlertTriangle, Square,
 } from "lucide-react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { isAxiosError } from "axios";
@@ -32,6 +33,7 @@ interface Message {
   content: string;
   timestamp: Date;
   isError?: boolean;
+  reaction?: "up" | "down" | null;
 }
 
 // Date.now() alone collides: a fast double-tap on a suggestion can fire both
@@ -95,6 +97,7 @@ function saveHistory(messages: Message[]) {
 
 export default function Chat() {
   const plan = useAppStore((s) => s.plan);
+  const showToast = useAppStore((s) => s.showToast);
   const { t, lang } = useTranslation();
   useDocumentTitle(t("chat", "title"));
 
@@ -237,6 +240,29 @@ export default function Chat() {
     sendMessage(lastUserTextRef.current);
   }
 
+  /**
+   * Re-ask the question that produced a given reply. Drops that reply and
+   * everything after it so the model re-answers from the same point rather
+   * than treating its own previous attempt as context.
+   */
+  function regenerateFrom(assistantId: string) {
+    if (isLoading) return;
+    const idx = messages.findIndex((m) => m.id === assistantId);
+    if (idx < 1) return;
+    // Find the question that produced this reply, then cut from the question
+    // itself — sendMessage re-appends it, so slicing after it would leave the
+    // same prompt in the thread twice.
+    let userIdx = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === "user") { userIdx = i; break; }
+    }
+    if (userIdx === -1) return;
+    const text = messages[userIdx].content;
+    const trimmed = messages.slice(0, userIdx);
+    setMessages(trimmed);
+    sendMessage(text, trimmed);
+  }
+
   async function copyMessage(msg: Message) {
     try {
       await navigator.clipboard.writeText(msg.content);
@@ -245,6 +271,21 @@ export default function Chat() {
     } catch {
       // clipboard permission denied — nothing to recover
     }
+  }
+
+  function setMessageReaction(id: string, reaction: "up" | "down") {
+    let didSet = false;
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        const cleared = m.reaction === reaction;
+        didSet = !cleared;
+        return { ...m, reaction: cleared ? null : reaction };
+      }),
+    );
+    // Only acknowledge an actual new reaction: re-clicking the same button clears
+    // it, and toasting there would spam.
+    if (didSet) showToast(t("chat", "reaction_thanks"), undefined, "info");
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -470,6 +511,31 @@ export default function Chat() {
                                     </motion.span>
                                   )}
                                 </AnimatePresence>
+                              </button>
+                              <button
+                                onClick={() => setMessageReaction(msg.id, "up")}
+                                aria-label="Good reply"
+                                className={cn(ACTION_BTN, msg.reaction === "up" && "text-accent")}
+                              >
+                                <ThumbsUp className={cn("w-4 h-4", msg.reaction === "up" && "fill-gold-400")} />
+                              </button>
+                              <button
+                                onClick={() => setMessageReaction(msg.id, "down")}
+                                aria-label="Bad reply"
+                                className={cn(ACTION_BTN, msg.reaction === "down" && "text-copper-400")}
+                              >
+                                <ThumbsDown className={cn("w-4 h-4", msg.reaction === "down" && "fill-copper-400")} />
+                              </button>
+                              {/* Regenerate is available on every reply, so one that merely missed the point
+                                  does not force retyping the question. */}
+                              <button
+                                onClick={() => regenerateFrom(msg.id)}
+                                disabled={isLoading}
+                                aria-label={t("chat", "retry")}
+                                title={t("chat", "retry")}
+                                className={cn(ACTION_BTN, "disabled:opacity-40")}
+                              >
+                                <RefreshCw className="w-4 h-4" />
                               </button>
                             </>
                           )}
