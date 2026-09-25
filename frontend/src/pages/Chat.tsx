@@ -15,6 +15,7 @@ import { MessageContent } from "@/components/chat/MessageContent";
 import { CollapsibleAnswer } from "@/components/chat/CollapsibleAnswer";
 import { VoiceTranslator } from "@/components/chat/VoiceTranslator";
 import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
+import { TourBuilder, type TourBuilderData } from "@/components/chat/TourBuilder";
 import { Mark } from "@/components/brand/Wordmark";
 import { Kicker, Rule, Button } from "@/components/ui/editorial";
 import { plateHue } from "@/data/countries";
@@ -186,6 +187,8 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [tourBuilderOpen, setTourBuilderOpen] = useState(false);
+  const [tourBuilderGenerating, setTourBuilderGenerating] = useState(false);
   const [threads, setThreads] = useState<ChatThread[]>(() => loadThreads());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -356,6 +359,50 @@ export default function Chat() {
     // Only acknowledge an actual new reaction: re-clicking the same button clears
     // it, and toasting there would spam.
     if (didSet) showToast(t("chat", "reaction_thanks"), undefined, "info");
+  }
+
+  /**
+ * Calls the structured `POST /ai/tour-plan` endpoint directly with the choices
+ * picked in the modal, rather than sending them as a prose message and having the
+ * model ask clarifying questions back.
+ */
+  async function submitTourBuilder(data: TourBuilderData) {
+    setTourBuilderGenerating(true);
+    const summary = [
+      data.regions.join(", "),
+      data.days,
+      data.people,
+      data.budget,
+    ].join(" · ");
+    const userMsg: Message = { id: makeId(), role: "user", content: `${t("chat", "tour_builder_summary")}: ${summary}`, timestamp: new Date() };
+    setMessages((prev) => [...prev, userMsg]);
+    wasNearBottomRef.current = true;
+    try {
+      const res = await apiClient.post<{ plan: string }>(
+        "/ai/tour-plan",
+        { tourData: data, locationIds: plan.length ? plan.map((l) => l.id) : undefined },
+        { timeout: 45_000 },
+      );
+      setMessages((prev) => [
+        ...prev,
+        { id: makeId(), role: "assistant", content: res.plan ?? t("chat", "error"), timestamp: new Date() },
+      ]);
+      setTourBuilderOpen(false);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeId(),
+          role: "assistant",
+          content: extractChatError(err, t("chat", "error"), t("chat", "waking_up")),
+          timestamp: new Date(),
+          isError: true,
+        },
+      ]);
+      setTourBuilderOpen(false);
+    } finally {
+      setTourBuilderGenerating(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -545,6 +592,12 @@ export default function Chat() {
         onDeleteThread={deleteThread}
         onClearAll={clearAllThreads}
       />
+      <TourBuilder
+        open={tourBuilderOpen}
+        onClose={() => setTourBuilderOpen(false)}
+        onSubmit={submitTourBuilder}
+        generating={tourBuilderGenerating}
+      />
 
       {/* ── The conversation ───────────────────────────── */}
       <div className="relative flex-1 overflow-hidden">
@@ -726,7 +779,7 @@ export default function Chat() {
                     {QUICK_ACTIONS.map((a, i) => (
                       <button
                         key={a.label}
-                        onClick={() => sendMessage(a.text)}
+                        onClick={() => (a.seed === "samarqand" ? setTourBuilderOpen(true) : sendMessage(a.text))}
                         className="group relative flex items-start gap-3.5 text-left p-4
                                    border border-[var(--border)] rounded-sm overflow-hidden
                                    hover:border-[var(--gold-hairline)] transition-colors duration-400
