@@ -1,7 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft, Bookmark, BookmarkCheck, ExternalLink, Star, Share2, Check,
+  ArrowLeft, Bookmark, BookmarkCheck, ExternalLink, Star, Send, Loader2,
+  Share2, Check, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LOCATIONS_BY_ID, INIT_REVIEWS } from "@/data";
@@ -34,6 +36,37 @@ function StarRow({ value, className }: { value: number; className?: string }) {
   );
 }
 
+function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div className="flex gap-1 sm:gap-1.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onMouseEnter={() => setHovered(star)}
+          onMouseLeave={() => setHovered(0)}
+          onClick={() => onChange(star)}
+          // p-1.5 on a 32px glyph clears 44px per star on a phone, and the
+          // row still measures 252px so it never crowds a 375px screen.
+          className="p-1.5 sm:p-0 transition-transform active:scale-90"
+          aria-label={`${star} star${star > 1 ? "s" : ""}`}
+        >
+          <Star
+            className={cn(
+              "w-8 h-8 sm:w-6 sm:h-6 transition-colors duration-400",
+              star <= (hovered || value)
+                ? "fill-gold-400 text-accent"
+                : "fill-transparent text-[var(--border)]",
+            )}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A review, set as a ruled entry rather than a floating card. */
 function ReviewEntry({ review, t }: { review: Review; t: TFn }) {
   return (
     <article className="py-6 hairline-b last:border-b-0">
@@ -112,6 +145,7 @@ export default function LocationDetail() {
   const addToPlan = useAppStore((s) => s.addToPlan);
   const removeFromPlan = useAppStore((s) => s.removeFromPlan);
   const showToast = useAppStore((s) => s.showToast);
+  const user = useAppStore((s) => s.user);
   // Selecting the array (not calling the store's isInPlan(), which reads
   // through get() and therefore subscribes to nothing) is what makes the
   // saved state genuinely reactive here.
@@ -146,6 +180,12 @@ export default function LocationDetail() {
   const REVIEWS_PAGE_SIZE = 8;
   const [reviewsVisible, setReviewsVisible] = useState(REVIEWS_PAGE_SIZE);
 
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [stars, setStars] = useState(0);
+  const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
   // The sticky save bar appears once the inline actions scroll out of view.
   const actionRef = useRef<HTMLDivElement>(null);
   const [stickyVisible, setStickyVisible] = useState(false);
@@ -158,6 +198,9 @@ export default function LocationDetail() {
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
+
+  const reviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (reviewTimerRef.current) clearTimeout(reviewTimerRef.current); }, []);
 
   if (!location) {
     return (
@@ -217,6 +260,29 @@ export default function LocationDetail() {
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       await copyLink(url);
+    }
+  }
+
+  async function submitReview() {
+    if (!stars || !text.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const saved = await apiClient.post<BackendReview>("/reviews", {
+        locationId: loc.id,
+        text: text.trim(),
+        stars,
+        author: user?.name ?? t("profile", "guest"),
+        country: user?.country,
+      });
+      setBackendReviews((prev) => [adaptBackendReview(saved), ...prev]);
+      setStars(0);
+      setText("");
+      setSubmitted(true);
+      reviewTimerRef.current = setTimeout(() => { setSubmitted(false); setReviewOpen(false); }, 2500);
+    } catch {
+      showToast(t("detail", "review_submit_error"), undefined, "error");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -319,12 +385,80 @@ export default function LocationDetail() {
                     {allReviews.length} {t("detail", "total_reviews")}
                   </h2>
                 </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => setReviewOpen((o) => !o)}
+                >
+                  {t("detail", "write_review")}
+                </Button>
               </div>
               <Rule gold />
+
+              <AnimatePresence initial={false}>
+                {reviewOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-6 border border-[var(--border)] rounded-sm p-6">
+                      {submitted ? (
+                        <p className="py-6 text-center font-display text-[19px] text-accent">
+                          {t("detail", "review_success")}
+                        </p>
+                      ) : (
+                        <>
+                          <Kicker className="mb-3">{t("detail", "your_rating")}</Kicker>
+                          <StarPicker value={stars} onChange={setStars} />
+                          <textarea
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder={t("detail", "review_placeholder")}
+                            rows={4}
+                            className="mt-6 w-full bg-transparent border-b border-[var(--input-border)]
+                                       px-0 py-2.5 text-[16px] sm:text-[14px] text-ink resize-none
+                                       placeholder:text-subtle outline-none
+                                       focus:border-gold-400 transition-colors duration-400"
+                          />
+                          <div className="flex gap-2 mt-6">
+                            <Button
+                              onClick={submitReview}
+                              disabled={!stars || !text.trim() || submitting}
+                              size="sm"
+                            >
+                              {submitting ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+                              ) : (
+                                <Send className="w-3.5 h-3.5" aria-hidden />
+                              )}
+                              {t("detail", "submit_review")}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setReviewOpen(false)}
+                              aria-label="Cancel"
+                            >
+                              <X className="w-4 h-4" aria-hidden />
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {allReviews.length === 0 ? (
                 <div className="py-14 text-center">
                   <p className="text-[14px] text-subtle mb-4">{t("detail", "no_reviews")}</p>
+                  <Button variant="ghost" size="sm" onClick={() => setReviewOpen(true)}>
+                    {t("detail", "add_first_review")}
+                  </Button>
                 </div>
               ) : (
                 <div className="mt-8">
