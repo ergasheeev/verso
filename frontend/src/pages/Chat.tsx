@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Send, Loader2, RotateCcw, Copy, Check, RefreshCw, ChevronDown,
   ThumbsUp, ThumbsDown, Landmark, Hotel, Bus, Star as StarIcon,
-  Lightbulb, AlertTriangle, Square,
+  Lightbulb, AlertTriangle, Square, Mic, Languages,
 } from "lucide-react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { isAxiosError } from "axios";
@@ -12,6 +12,7 @@ import { apiClient } from "@/lib/api-client";
 import { useAppStore } from "@/store";
 import { useTranslation, LOCALE_TAGS } from "@/i18n";
 import { MessageContent } from "@/components/chat/MessageContent";
+import { VoiceTranslator } from "@/components/chat/VoiceTranslator";
 import { Mark } from "@/components/brand/Wordmark";
 import { Kicker, Rule, Button } from "@/components/ui/editorial";
 import { plateHue } from "@/data/countries";
@@ -121,6 +122,7 @@ export default function Chat() {
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const lastUserTextRef = useRef("");
@@ -368,6 +370,21 @@ export default function Chat() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {/* A gold-tinted, labelled pill matching "New chat" in shape, so the voice
+                translator carries the same visual weight as its neighbours. It has a matching
+                entry in the empty-screen quick actions for a first-time visitor who has not
+                found the header. */}
+            <button
+              onClick={() => setVoiceOpen(true)}
+              aria-label={t("voice", "title")}
+              title={t("voice", "title")}
+              className="tap-44 flex items-center gap-2 h-8 px-3 rounded-sm border border-[var(--gold-hairline)]
+                         bg-[var(--gold-soft)] text-accent text-[11px] uppercase tracking-[0.12em]
+                         hover:border-gold-400 transition-colors duration-400"
+            >
+              <Languages className="w-3.5 h-3.5" aria-hidden />
+              <span className="hidden sm:inline">{t("voice", "title")}</span>
+            </button>
             <button
               onClick={resetChat}
               aria-label={t("chat", "reset")}
@@ -383,6 +400,7 @@ export default function Chat() {
         </div>
       </div>
 
+      <VoiceTranslator open={voiceOpen} onClose={() => setVoiceOpen(false)} />
       {/* ── The conversation ───────────────────────────── */}
       <div className="relative flex-1 overflow-hidden">
         <div
@@ -579,6 +597,29 @@ export default function Chat() {
                         <Send className="w-3.5 h-3.5 shrink-0 mt-1 text-subtle opacity-0 group-hover:opacity-100 transition-opacity duration-400" aria-hidden />
                       </button>
                     ))}
+                    {/* A sixth card, styled to stand apart from the five text prompts (gold border,
+                        no plate wash) since it opens a different surface — the voice translator
+                        dialog — rather than sending a message. A first-time visitor's eye is on this
+                        grid, not the masthead row above it. */}
+                    <button
+                      onClick={() => setVoiceOpen(true)}
+                      className="relative flex items-start gap-3.5 text-left p-4
+                                 border border-[var(--gold-hairline)] bg-[var(--gold-soft)] rounded-sm
+                                 hover:border-gold-400 transition-colors duration-400
+                                 animate-fade-up"
+                      style={{ animationDelay: `${250 + QUICK_ACTIONS.length * 60}ms` }}
+                    >
+                      <span className="shrink-0 w-9 h-9 rounded-sm border border-[var(--gold-hairline)]
+                                        bg-[var(--modal)] flex items-center justify-center">
+                        <Mic className="w-4 h-4 text-accent" strokeWidth={1.75} aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1 pt-1">
+                        <span className="block text-[14px] text-ink route-underline">{t("voice", "title")}</span>
+                        <span className="block text-[12px] leading-snug text-subtle mt-1 line-clamp-2">
+                          {t("voice", "subtitle")}
+                        </span>
+                      </span>
+                    </button>
                   </div>
                 </div>
               )}
