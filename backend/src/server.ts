@@ -93,12 +93,14 @@ app.get("/health", (_req, res) => {
 
 // ── API Routes ────────────────────────────────────────
 import { authRouter }     from "@/modules/auth/auth.router";
+import { userRouter }     from "@/modules/users/user.router";
 import { locationRouter } from "@/modules/locations/location.router";
 import { reviewRouter }   from "@/modules/reviews/review.router";
 import { aiRouter }       from "@/modules/ai/ai.router";
 import { bookingRouter }  from "@/modules/bookings/booking.router";
 
 app.use("/api/auth",      authRouter);
+app.use("/api/users",     userRouter);
 app.use("/api/locations", locationRouter);
 app.use("/api/reviews",   reviewRouter);
 app.use("/api/ai",        aiRouter);
