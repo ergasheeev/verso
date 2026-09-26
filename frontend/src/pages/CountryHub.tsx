@@ -17,6 +17,7 @@ import { useTranslation } from "@/i18n";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { FlagTile } from "@/components/shared/Flag";
 import { LocalTime } from "@/components/country/LocalTime";
+import { CountryMap } from "@/components/country/CountryMap";
 import { countryName, capitalName } from "@/data/countries.i18n";
 import { useCountryProse } from "@/data/country-prose";
 import { COUNTRY_IMAGES } from "@/data/country-images";
@@ -262,6 +263,24 @@ export default function CountryHub() {
             )}
           </aside>
         </div>
+
+        <Rule />
+
+        {/* ── Where it is ──────────────────────────────── */}
+        <section className="py-12">
+          <div className="flex items-end justify-between gap-6 mb-3.5">
+            <div>
+              <Kicker className="mb-2.5">{t("country", "map")}</Kicker>
+              <h2 className="font-display text-2xl sm:text-3xl text-ink leading-[1.08]">
+                {name}
+              </h2>
+            </div>
+            <span className="tabular text-[12px] text-subtle shrink-0 pb-1">{coords}</span>
+          </div>
+          <Rule />
+          <CountryMap c={c} className="mt-7" />
+          <p className="text-[12.5px] text-subtle mt-3">{t("country", "map_caption")}</p>
+        </section>
 
         <Rule />
 
