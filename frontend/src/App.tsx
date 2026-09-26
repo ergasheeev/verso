@@ -15,6 +15,8 @@ import Profile from "@/pages/Profile";
 import SavedPlaces from "@/pages/SavedPlaces";
 import Pro from "@/pages/Pro";
 import Community from "@/pages/Community";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
       <Routes>
         <Route path="/login"  element={<Auth />} />
         <Route path="/signup" element={<Auth />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms"   element={<Terms />} />
         <Route element={<MainLayout />}>
           <Route path="/"              element={<Landing />} />
           <Route path="/atlas"         element={<Atlas />} />
