@@ -50,7 +50,6 @@ interface AppStore {
   closeAuthModal: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
-
   // Persisted so the onboarding tour greets a visitor exactly once.
   tourSeen: boolean;
   markTourSeen: () => void;
@@ -154,11 +153,23 @@ export const useAppStore = create<AppStore>()(
       toasts: [],
 
       showToast: (message, icon, type = "success") => {
+        // A rapid run of clicks that each call showToast with the SAME message (e.g.
+        // thumbs-up spam) must not stack an unbounded pile of toasts, each with its own
+        // 3s timer. If an identical message is already showing, no-op — the user already
+        // sees the feedback.
         const alreadyShowing = get().toasts.some((t) => t.message === message);
         if (alreadyShowing) return;
 
+        // Date.now() alone collides when two toasts fire in the same millisecond (e.g.
+        // two quick "added to plan" taps): both would share a key, and dismissing one
+        // would kill both. A random suffix guarantees uniqueness without
+        // crypto.randomUUID, which is unavailable in non-secure/older WebView contexts.
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set((state) => {
+          // Defensive cap: even with de-duping above, distinct messages
+          // firing back-to-back (e.g. several different "added to plan"
+          // taps) shouldn't be able to bury the screen — keep at most 3
+          // visible, dropping the oldest first.
           const next = [...state.toasts, { id, message, icon, type }];
           return { toasts: next.length > 3 ? next.slice(next.length - 3) : next };
         });
@@ -169,7 +180,6 @@ export const useAppStore = create<AppStore>()(
 
       dismissToast: (id) =>
         set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
-
 
       // ── User Reviews (local-first) ────────────────────
       userReviews: {},
@@ -202,17 +212,20 @@ export const useAppStore = create<AppStore>()(
         userReviews: state.userReviews,
         tourSeen: state.tourSeen,
       }),
-      // Bumping this version forces a one-time migration, resetting the
-      // persisted language to the current default.
+      // Bumping this version forces a one-time migration, resetting the persisted
+      // language to the current default.
       version: 1,
       migrate: (persisted, version) => {
         const state = persisted as { lang?: Lang };
         if (version < 1) state.lang = "en";
         return state;
       },
-      // `user` is persisted but `isLoggedIn` deliberately is not — a stale
-      // `true` surviving a failed logout would be a security-relevant lie.
-      // It is derived from the restored `user` on rehydrate instead.
+      // `user` is persisted but `isLoggedIn` deliberately is not — a stale `true`
+      // surviving a failed logout would be a security-relevant lie. Instead it is
+      // derived from the restored `user` on rehydrate, so the UI (Profile, Landing,
+      // plan sync) is correct immediately rather than only after checkAuth()'s network
+      // round-trip (30-60s on a cold backend), and never mis-set when localStorage has
+      // a user but no token.
       onRehydrateStorage: () => (state) => {
         if (state) state.isLoggedIn = !!state.user;
       },
