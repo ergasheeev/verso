@@ -30,6 +30,24 @@ const deleteParamSchema = z.object({
   id: z.string().min(1),
 });
 
+// ── GET /api/reviews/me ────────────────────────────────
+// Registered ahead of GET /:locationId on purpose — Express matches routes
+// in registration order, and ":locationId" is a catch-all for any single
+// path segment, so "/me" would otherwise never be reached; every request
+// for it would resolve as a lookup for a location literally named "me".
+reviewRouter.get(
+  "/me",
+  authenticate,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const reviews = await reviewService.getByUser(req.user!.userId);
+      sendSuccess(res, reviews);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // ── GET /api/reviews/:locationId ──────────────────────
 reviewRouter.get(
   "/:locationId",

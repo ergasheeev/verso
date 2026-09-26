@@ -58,6 +58,22 @@ export async function getByLocation(locationId: string, page = 1, limit = 10) {
   return { reviews, total, pagination: buildPagination(safePage, safeLimit, total) };
 }
 
+// ── getByUser ──────────────────────────────────────────
+// Every review one signed-in visitor has ever written, across every
+// location — what the Community page's "my reviews" view reads. Unlike
+// getByLocation this has no pagination: a single traveller's own review
+// count is realistically small, and a second page of one's own writing is
+// not a case worth the extra round trip.
+export async function getByUser(userId: string) {
+  return prisma.review.findMany({
+    where:   { userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      location: { select: { id: true, name: true, city: true, images: true } },
+    },
+  });
+}
+
 // ── create ─────────────────────────────────────────────
 export async function create(dto: CreateReviewDto): Promise<Review> {
   // Fail with a clean 404 instead of letting a stale/unknown locationId
