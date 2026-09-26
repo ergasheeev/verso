@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { User, Location } from "@/types";
+import type { User, Location, Review } from "@/types";
 import type { Lang } from "@/i18n/translations";
 
 export interface Toast {
@@ -55,6 +55,10 @@ interface AppStore {
   toasts: Toast[];
   showToast: (message: string, icon?: string, type?: Toast["type"]) => void;
   dismissToast: (id: string) => void;
+
+  // User reviews (persisted locally, works without backend)
+  userReviews: Record<string, Review[]>;
+  addUserReview: (locationId: string, review: Omit<Review, "id" | "locationId">) => void;
 }
 
 export const useAppStore = create<AppStore>()(
@@ -158,6 +162,25 @@ export const useAppStore = create<AppStore>()(
 
       dismissToast: (id) =>
         set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
+
+
+      // ── User Reviews (local-first) ────────────────────
+      userReviews: {},
+
+      addUserReview: (locationId, review) =>
+        set((state) => {
+          const newReview: Review = {
+            ...review,
+            id: `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            locationId,
+          };
+          return {
+            userReviews: {
+              ...state.userReviews,
+              [locationId]: [newReview, ...(state.userReviews[locationId] ?? [])],
+            },
+          };
+        }),
     }),
     {
       name: "verso-v1",
@@ -169,6 +192,7 @@ export const useAppStore = create<AppStore>()(
         savedHotels: state.savedHotels,
         theme: state.theme,
         lang: state.lang,
+        userReviews: state.userReviews,
       }),
       // Bumping this version forces a one-time migration, resetting the
       // persisted language to the current default.
