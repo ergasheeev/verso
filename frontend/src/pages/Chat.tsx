@@ -1,12 +1,13 @@
 ﻿import { useState, useRef, useEffect, useMemo, memo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Send, Loader2, RotateCcw, Copy, Check, RefreshCw, ChevronDown,
+  Send, Loader2, RotateCcw, X, Copy, Check, RefreshCw, ChevronDown,
   ThumbsUp, ThumbsDown, Landmark, Hotel, Bus, Star as StarIcon,
-  Lightbulb, AlertTriangle, Square, Mic, Lock, History, Languages,
+  Lightbulb, AlertTriangle, Square, ArrowUpRight, Mic, Lock, History,
+  Languages,
 } from "lucide-react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
@@ -19,7 +20,11 @@ import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
 import { TourBuilder, type TourBuilderData } from "@/components/chat/TourBuilder";
 import { Mark } from "@/components/brand/Wordmark";
 import { Kicker, Rule, Button } from "@/components/ui/editorial";
-import { plateHue } from "@/data/countries";
+import { CATEGORY_STYLE } from "@/lib/categories";
+import { GenerateButton } from "@/components/ui/GenerateButton";
+import { LOCATIONS } from "@/data";
+import { COUNTRY_BY_SLUG, plateHue } from "@/data/countries";
+import { countryName } from "@/data/countries.i18n";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 /**
@@ -41,6 +46,60 @@ interface Message {
   isError?: boolean;
   reaction?: "up" | "down" | null;
 }
+
+/** If a reply names a place we actually hold, make it openable. */
+function findMentionedLocations(text: string) {
+  return LOCATIONS.filter((l) => text.includes(l.name)).slice(0, 3);
+}
+
+// Memoized so a message's scan only re-runs when its own text changes, not
+// on every re-render of the list (typing, reactions, new messages arriving).
+const MentionedLocations = memo(function MentionedLocations({
+  text,
+  onOpen,
+  label,
+}: {
+  text: string;
+  onOpen: (id: string) => void;
+  /** Passed in rather than translated here: this sits outside the component that holds `t`. */
+  label: string;
+}) {
+  const mentioned = useMemo(() => findMentionedLocations(text), [text]);
+  if (!mentioned.length) return null;
+  return (
+    <div className="mt-5 border-t border-[var(--border)] pt-4">
+      <Kicker className="mb-2">{label}</Kicker>
+      <ul>
+        {mentioned.map((loc) => {
+          const cat = CATEGORY_STYLE[loc.category];
+          return (
+            <li key={loc.id}>
+              <button
+                onClick={() => onOpen(loc.id)}
+                className="group w-full flex items-center gap-3.5 py-2.5 text-left hairline-b last:border-b-0"
+              >
+                <span className="shrink-0 w-9 h-9 rounded-sm overflow-hidden bg-[var(--muted)] flex items-center justify-center">
+                  {loc.img ? (
+                    <img src={loc.img} alt="" loading="lazy" className="w-full h-full object-cover" />
+                  ) : (
+                    <cat.Icon className="w-4 h-4 text-subtle/40" strokeWidth={1} aria-hidden />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] text-ink truncate route-underline">{loc.name}</span>
+                  <span className="block tabular text-[11px] text-subtle mt-0.5">
+                    {loc.city} · ★ {loc.rating}
+                  </span>
+                </span>
+                <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-subtle group-hover:text-accent transition-colors duration-400" aria-hidden />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+});
 
 // Date.now() alone collides: a fast double-tap on a suggestion can fire both
 // handlers before React commits the isLoading state that would block the
@@ -241,6 +300,7 @@ export default function Chat() {
   const { isMobile } = useBreakpoint();
   useDocumentTitle(t("chat", "title"));
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   function makeWelcomeMessage(): Message {
     return { id: "welcome", role: "assistant", content: t("chat", "welcome"), timestamp: new Date() };
@@ -262,6 +322,7 @@ export default function Chat() {
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [planBannerDismissed, setPlanBannerDismissed] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tourBuilderOpen, setTourBuilderOpen] = useState(false);
@@ -315,6 +376,21 @@ export default function Chat() {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // A country hub's "Start planning" button links here as /chat?country=italy.
+  // Pre-filling (rather than auto-sending) costs no model call until the visitor
+  // confirms, and a refresh does not resend it because the param is stripped from
+  // the URL immediately.
+  useEffect(() => {
+    const slug = searchParams.get("country");
+    if (!slug) return;
+    const country = COUNTRY_BY_SLUG[slug];
+    setSearchParams((prev) => { prev.delete("country"); return prev; }, { replace: true });
+    if (!country) return;
+    setInput(`${t("chat", "country_prompt")} ${countryName(country, lang)}.`);
+    inputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleScroll() {
     const el = scrollAreaRef.current;
@@ -466,6 +542,12 @@ export default function Chat() {
     if (didSet) showToast(t("chat", "reaction_thanks"), undefined, "info");
   }
 
+  function sendPlanTourRequest() {
+    if (!plan.length) return;
+    setPlanBannerDismissed(true);
+    setTourBuilderOpen(true);
+  }
+
   /**
  * Calls the structured `POST /ai/tour-plan` endpoint directly with the choices
  * picked in the modal, rather than sending them as a prose message and having the
@@ -548,6 +630,7 @@ export default function Chat() {
     archiveThread(messages);
     setMessages([makeWelcomeMessage()]);
     setInput("");
+    setPlanBannerDismissed(false);
     lastUserTextRef.current = "";
     saveHistory([]);
   }
@@ -602,7 +685,25 @@ export default function Chat() {
   // has no welcome message, so a length check would show the opening screen
   // on top of someone's existing thread.
   const hasConversation = messages.some((m) => m.id !== "welcome");
+  const showPlanBanner = plan.length > 0 && !planBannerDismissed && !hasConversation;
   const showQuickActions = !hasConversation;
+
+  // Only the newest reply carries follow-ups — offering them under every
+  // past answer in a long thread would be three buttons per turn of noise.
+  const lastAssistantId = [...messages].reverse()
+    .find((m) => m.role === "assistant" && m.id !== "welcome" && !m.isError)?.id;
+
+  /** Picks the three most plausible next questions from the reply's shape. */
+  function followUpsFor(reply: string): string[] {
+    // A day-by-day plan is the one reply where "cheaper" and "one more day"
+    // are the obvious next asks; anything else gets orientation questions.
+    const looksLikeItinerary =
+      /^#{1,6}\s*.*\b(day|kun|день|tag|jour|天)\b/im.test(reply) ||
+      /\b(itinerary|marshrut|rejasi|маршрут|reiseplan|itinéraire|行程)\b/i.test(reply);
+    return looksLikeItinerary
+      ? [t("chat", "followup_cheaper"), t("chat", "followup_more_days"), t("chat", "followup_stay")]
+      : [t("chat", "followup_season"), t("chat", "followup_getting_around"), t("chat", "followup_stay")];
+  }
 
   return (
     // Fills <main> (MainLayout stops it scrolling on this route) instead of
@@ -810,6 +911,44 @@ export default function Chat() {
                           </Button>
                         )}
 
+                        {!msg.isError && (
+                          <MentionedLocations
+                            text={msg.content}
+                            label={t("chat", "in_atlas")}
+                            onOpen={(id) => navigate(`/locations/${id}`)}
+                          />
+                        )}
+
+                        {/* Follow-ups, on the latest reply only. Typing a
+                            question on a phone keyboard is the main friction
+                            in this screen, and the obvious next asks after a
+                            travel answer are a short, predictable set. They
+                            are derived from the reply's own shape rather than
+                            a second model call, so they cost nothing and add
+                            no latency. */}
+                        {!msg.isError &&
+                          msg.id !== "welcome" &&
+                          !isLoading &&
+                          msg.id === lastAssistantId && (
+                            <div className="mt-5">
+                              <Kicker className="mb-2.5">{t("chat", "followups_label")}</Kicker>
+                              <div className="flex flex-wrap gap-2">
+                                {followUpsFor(msg.content).map((f) => (
+                                  <button
+                                    key={f}
+                                    onClick={() => sendMessage(f)}
+                                    className="px-3 py-2 rounded-sm border border-[var(--border)]
+                                               text-[12.5px] text-subtle text-left
+                                               hover:border-[var(--gold-hairline)] hover:text-accent
+                                               transition-colors duration-400"
+                                  >
+                                    {f}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                         <div className="flex items-center gap-1 mt-3 -ml-1.5">
                           <span className="tabular text-[11px] text-subtle px-1.5">
                             {formatTime(msg.timestamp)}
@@ -980,6 +1119,45 @@ export default function Chat() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Plan hand-off ──────────────────────────────── */}
+      {showPlanBanner && (
+        <div className="shrink-0 px-4 sm:px-6 pb-3">
+          <div className="relative max-w-[880px] mx-auto border border-[var(--gold-hairline)] rounded-sm bg-[var(--gold-soft)] p-5">
+            <button
+              onClick={() => setPlanBannerDismissed(true)}
+              aria-label="Close"
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-sm
+                         text-subtle hover:text-ink transition-colors duration-400"
+            >
+              <X className="w-3.5 h-3.5" aria-hidden />
+            </button>
+            <Kicker gold className="mb-2">
+              {plan.length} {t("chat", "plan_banner_title")}
+            </Kicker>
+            <p className="text-[12.5px] leading-snug text-subtle mb-4 pr-8">
+              {plan.slice(0, 3).map((l) => l.name).join(", ")}
+              {plan.length > 3 &&
+                ` ${t("chat", "plan_banner_desc")} ${plan.length - 3} ${t("chat", "plan_banner_more")}`}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {/* The one control here that starts real model work, so it keeps
+                  the animated treatment — the motion doubles as the in-flight
+                  state. */}
+              <GenerateButton
+                onClick={sendPlanTourRequest}
+                generating={isLoading}
+                labelIdle={t("chat", "plan_btn")}
+                labelActive={t("chat", "plan_generating")}
+                className="!px-4 !py-2 !text-xs !rounded-sm"
+              />
+              <Button variant="secondary" size="sm" onClick={() => navigate("/saved")}>
+                {t("chat", "plan_view")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Composer ───────────────────────────────────── */}
       <div className="shrink-0 border-t border-[var(--border)] bg-[var(--header-bg)] glass px-4 sm:px-6 pt-3 pb-3 sm:pb-4">
