@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ArrowUpRight, X } from "lucide-react";
 import {
   COUNTRIES,
@@ -17,6 +17,10 @@ import { Flag, FlagTile } from "@/components/shared/Flag";
 import { COUNTRY_IMAGES } from "@/data/country-images";
 import registanImg from "@/data/registan.jpg";
 import { countryName, capitalName } from "@/data/countries.i18n";
+import { CompareTray, ComparePanel, COMPARE_MAX } from "@/components/country/CompareTray";
+import { AnimatePresence } from "framer-motion";
+import { Columns3 } from "lucide-react";
+import { useAppStore } from "@/store";
 import { useTranslation, LOCALE_TAGS } from "@/i18n";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { cn } from "@/lib/utils";
@@ -180,6 +184,60 @@ export default function Atlas() {
   // already carries priceLevel.
   const [budget, setBudget] = useState<0 | 1 | 2 | 3>(0);
   const [sort, setSort] = useState<"name" | "price_asc" | "price_desc">("name");
+  const showToast = useAppStore((s) => s.showToast);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  /**
+   * Comparison lives in the URL (`?compare=JP,IT,FR`), not component state.
+   *
+   * Three things fall out of that for free: the selection survives opening
+   * a country and coming back, the browser's Back button steps through it,
+   * and a comparison can be sent to someone as a link — which is the whole
+   * point of comparing countries with another person.
+   *
+   * Codes, not indices, so a stale link keeps working after the dataset is
+   * reordered; anything unrecognised is dropped on read.
+   */
+  const compare = useMemo(() => {
+    const raw = searchParams.get("compare");
+    if (!raw) return [];
+    const valid = new Set(COUNTRIES.map((c) => c.code));
+    return [...new Set(raw.toUpperCase().split(",").map((s) => s.trim()))]
+      .filter((code) => valid.has(code))
+      .slice(0, COMPARE_MAX);
+  }, [searchParams]);
+
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  const setCompare = (next: string[]) => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (next.length) p.set("compare", next.join(","));
+        else p.delete("compare");
+        return p;
+      },
+      // Replace rather than push: ticking through four countries should not
+      // leave four entries for Back to walk out of.
+      { replace: true },
+    );
+  };
+
+  const picked = compare
+    .map((code) => COUNTRIES.find((c) => c.code === code))
+    .filter((c): c is Country => Boolean(c));
+
+  const toggleCompare = (c: Country) => {
+    if (compare.includes(c.code)) {
+      setCompare(compare.filter((x) => x !== c.code));
+      return;
+    }
+    if (compare.length >= COMPARE_MAX) {
+      showToast(t("country", "compare_hint"), undefined, "info");
+      return;
+    }
+    setCompare([...compare, c.code]);
+  };
 
   // Continents arrive from the dataset as English keys ("North America"): fine as
   // identifiers, but translated for display.
@@ -470,7 +528,14 @@ export default function Atlas() {
 
                 <ul>
                   {list.map((c) => {
+                    const inCompare = compare.includes(c.code);
                     return (
+                    // The compare toggle is a SIBLING of the row button, not
+                    // a child: a button inside a button is invalid HTML and
+                    // the inner one never receives its own click.
+                    // `group` lives on the li, not the button: the compare
+                    // toggle is a sibling of the button, so group-hover had
+                    // to be scoped to something that contains both.
                     <li key={c.code} className="group relative hairline-b">
                       <button
                         onClick={() => navigate(`/c/${c.slug}`)}
@@ -525,6 +590,28 @@ export default function Atlas() {
                           />
                         </span>
                       </button>
+
+                      <button
+                        onClick={() => toggleCompare(c)}
+                        aria-pressed={inCompare}
+                        aria-label={`${t("country", inCompare ? "compare_remove" : "compare_add")}: ${countryName(c, lang)}`}
+                        title={t("country", "compare")}
+                        className={cn(
+                          "tap-44 absolute right-0 top-1/2 -translate-y-1/2 z-[2]",
+                          "flex items-center justify-center w-8 h-8 rounded-sm border",
+                          "transition-colors duration-300",
+                          inCompare
+                            ? "border-[var(--gold-hairline)] bg-[var(--gold-soft)] text-accent"
+                            : // Hidden until hover on a pointer device so the
+                              // index keeps its quiet ruled rhythm; always
+                              // visible on touch, where there is no hover.
+                              "border-transparent text-subtle opacity-100 sm:opacity-0 " +
+                              "sm:group-hover:opacity-100 focus-visible:opacity-100 " +
+                              "hover:border-[var(--border)] hover:text-accent",
+                        )}
+                      >
+                        <Columns3 className="w-4 h-4" strokeWidth={1.75} aria-hidden />
+                      </button>
                     </li>
                     );
                   })}
@@ -534,6 +621,23 @@ export default function Atlas() {
           )}
         </section>
       </PageWrap>
+
+      <CompareTray
+        picked={picked}
+        onRemove={(code) => setCompare(compare.filter((x) => x !== code))}
+        onClear={() => setCompare([])}
+        onOpen={() => setCompareOpen(true)}
+      />
+
+      <AnimatePresence>
+        {compareOpen && picked.length > 0 && (
+          <ComparePanel
+            picked={picked}
+            onClose={() => setCompareOpen(false)}
+            continentLabel={(c) => continentLabel(c.continent)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
