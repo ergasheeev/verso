@@ -12,6 +12,7 @@ import CountryHub from "@/pages/CountryHub";
 import RestaurantDetail from "@/pages/RestaurantDetail";
 import HotelDetail from "@/pages/HotelDetail";
 import Profile from "@/pages/Profile";
+import SavedPlaces from "@/pages/SavedPlaces";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/atlas"         element={<Atlas />} />
           <Route path="/c/:slug"       element={<CountryHub />} />
           <Route path="/profile"       element={<Profile />} />
+          <Route path="/saved"         element={<SavedPlaces />} />
           <Route path="/chat"          element={<Chat />} />
           <Route path="/locations"     element={<Locations />} />
           <Route path="/locations/:id" element={<LocationDetail />} />
