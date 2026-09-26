@@ -17,9 +17,11 @@ import { useTranslation } from "@/i18n";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { FlagTile } from "@/components/shared/Flag";
 import { LocalTime } from "@/components/country/LocalTime";
-import { CountryMap } from "@/components/country/CountryMap";
 import { countryName, capitalName } from "@/data/countries.i18n";
 import { useCountryProse } from "@/data/country-prose";
+import { CountryMap } from "@/components/country/CountryMap";
+import { GlobalPlaceGrid } from "@/components/country/GlobalPlaceGrid";
+import { GLOBAL_PLACES_BY_COUNTRY } from "@/data/global-places";
 import { COUNTRY_IMAGES } from "@/data/country-images";
 import { ParallaxHero } from "@/components/ui/ScrollMotion";
 
@@ -48,6 +50,7 @@ export default function CountryHub() {
   // Above the early return — this is a hook, and an unknown slug must not
   // change how many run. It tolerates `undefined` for exactly that reason.
   const prose = useCountryProse(country, lang);
+  const globalPlaces = country ? GLOBAL_PLACES_BY_COUNTRY.get(country.code) : undefined;
 
   if (!country) return <Navigate to="/atlas" replace />;
 
@@ -298,14 +301,21 @@ export default function CountryHub() {
           <Rule />
 
           {/* Uzbekistan keeps its own fully-booked catalogue (reviews, plan,
-              backend rows) at /locations. Every other country is answered at
-              country level for now, and the specifics are handed to the AI. */}
+              backend rows) at /locations. The other 45 the dataset covers
+              get a lighter, read-only grid — real places, but not wired
+              into the booking/review system Uzbekistan has. The remaining
+              6 the dataset doesn't reach yet fall back to the AI. */}
           {c.code === "UZ" ? (
             <div className="pt-8">
               <Button variant="secondary" onClick={() => navigate("/locations")}>
                 {t("country", "browse_all")}
                 <ArrowUpRight className="w-4 h-4" aria-hidden />
               </Button>
+            </div>
+          ) : globalPlaces?.length ? (
+            <div className="pt-8">
+              <p className="text-[12px] text-subtle mb-6">{t("country", "places_uz_note")}</p>
+              <GlobalPlaceGrid places={globalPlaces} />
             </div>
           ) : (
             <div className="pt-8 max-w-[52ch]">
