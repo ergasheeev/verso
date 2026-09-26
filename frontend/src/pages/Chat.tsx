@@ -3,9 +3,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Send, Loader2, RotateCcw, Copy, Check, RefreshCw, ChevronDown,
   ThumbsUp, ThumbsDown, Landmark, Hotel, Bus, Star as StarIcon,
-  Lightbulb, AlertTriangle, Square, Mic, History, Languages,
+  Lightbulb, AlertTriangle, Square, Mic, Lock, History, Languages,
 } from "lucide-react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
@@ -68,6 +69,79 @@ function extractChatError(err: unknown, fallback: string, wakingUp: string): str
 const ACTION_BTN =
   "flex items-center justify-center w-9 h-9 rounded-sm transition-colors duration-400 " +
   "text-subtle hover:text-accent";
+
+/**
+ * The two answering tiers.
+ *
+ * These are tier names, not model ids: the server holds the allowlist and resolves
+ * them, so the client never names a model and cannot reach one it was not offered.
+ */
+export type ChatModel = "fast" | "deep";
+const MODEL_KEY = "verso-chat-model";
+
+/**
+ * Two ruled options, not a dropdown or a toggle switch.
+ *
+ * The same device the Pro page uses for its billing cycle, and for the same
+ * reason: there are exactly two, both should be readable without opening
+ * anything, and which one is active should be obvious at a glance.
+ *
+ * Labelled by what they do for the reader — quick answers versus long
+ * itineraries — rather than by parameter count, which means nothing to
+ * anybody planning a holiday.
+ */
+/**
+ * Standard is free; Pro is the long-context model gated behind Verso Pro (the
+ * "AI model" row of the comparison table on /pro).
+ *
+ * A non-premium reader still SEES the Pro option — hiding it would hide the
+ * upsell — but tapping it opens the upgrade page instead of switching, the same
+ * pattern CountryHub's members-only card uses. The server clamps this
+ * independently (a direct API call asking for "deep" without a premium JWT is
+ * served "fast"), so this button is the honest path, not the only enforcement.
+ */
+function ModelSwitch({
+  value, onChange, onLocked, isPremium, t,
+}: {
+  value: ChatModel;
+  onChange: (m: ChatModel) => void;
+  /** Pro was tapped without a premium account. */
+  onLocked: () => void;
+  isPremium: boolean;
+  t: (section: "chat", key: string) => string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={t("chat", "model_label")}
+      className="flex items-center rounded-sm border border-[var(--border)] p-0.5"
+    >
+      {(["fast", "deep"] as const).map((k) => {
+        const active = value === k;
+        const locked = k === "deep" && !isPremium;
+        return (
+          <button
+            key={k}
+            role="radio"
+            aria-checked={active}
+            onClick={() => (locked ? onLocked() : onChange(k))}
+            title={t("chat", locked ? "model_pro_locked" : k === "fast" ? "model_fast_hint" : "model_deep_hint")}
+            className={cn(
+              "tap-44 flex items-center gap-1 px-2.5 py-1 rounded-[2px] text-[11.5px] sm:text-[10.5px] uppercase tracking-[0.1em]",
+              "transition-colors duration-300",
+              active
+                ? "bg-[var(--gold-soft)] text-accent"
+                : "text-subtle hover:text-ink",
+            )}
+          >
+            {locked && <Lock className="w-2.5 h-2.5" aria-hidden />}
+            {t("chat", k === "fast" ? "model_fast" : "model_deep")}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 // A refresh keeps the conversation: a long itinerary refined over several turns
 // is the most expensive thing in the app to lose.
@@ -160,10 +234,13 @@ function deriveTitle(messages: Message[], fallback: string): string {
 
 export default function Chat() {
   const plan = useAppStore((s) => s.plan);
+  const user = useAppStore((s) => s.user);
   const showToast = useAppStore((s) => s.showToast);
+  const isPremium = Boolean(user?.isPremium);
   const { t, lang } = useTranslation();
   const { isMobile } = useBreakpoint();
   useDocumentTitle(t("chat", "title"));
+  const navigate = useNavigate();
 
   function makeWelcomeMessage(): Message {
     return { id: "welcome", role: "assistant", content: t("chat", "welcome"), timestamp: new Date() };
@@ -190,6 +267,34 @@ export default function Chat() {
   const [tourBuilderOpen, setTourBuilderOpen] = useState(false);
   const [tourBuilderGenerating, setTourBuilderGenerating] = useState(false);
   const [threads, setThreads] = useState<ChatThread[]>(() => loadThreads());
+  // Which model answers. Remembered per device, because it is a working
+  // preference ("I want quick answers today"), not part of a conversation.
+  // Read lazily and defensively — a blocked or cleared store must not stop
+  // the chat from mounting.
+  const [model, setModel] = useState<ChatModel>(() => {
+    try {
+      const saved = localStorage.getItem(MODEL_KEY);
+      if (saved === "fast" || saved === "deep") return saved;
+    } catch { /* private mode / blocked storage — fall through to the default */ }
+    // No saved preference: a premium reader starts on the benefit they are
+    // paying for, everyone else starts on Standard.
+    return isPremium ? "deep" : "fast";
+  });
+  // What is actually requested, as opposed to what the switch remembers. A saved
+  // "deep" preference from before an account lapsed (or before it was ever
+  // premium) must not request the Pro model: the server would downgrade it, but the
+  // highlighted pill would then misstate which model answered.
+  const effectiveModel: ChatModel = isPremium ? model : "fast";
+  const chooseModel = (next: ChatModel) => {
+    setModel(next);
+    try { localStorage.setItem(MODEL_KEY, next); } catch { /* not worth failing over */ }
+  };
+  // Pro was tapped without a subscription: send them to upgrade rather than
+  // switching (silently) to a model they cannot actually use.
+  const goToProModel = () => {
+    showToast(t("chat", "model_pro_locked"), undefined, "info");
+    navigate("/pro");
+  };
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const lastUserTextRef = useRef("");
@@ -274,7 +379,7 @@ export default function Chat() {
         // the worst case at this width.
         {
           messages: apiMessages,
-          userContext: { plan: buildPlanContext(), lang, compact: isMobile },
+          userContext: { plan: buildPlanContext(), lang, model: effectiveModel, compact: isMobile },
         },
         { timeout: 45_000, signal: controller.signal },
       );
@@ -543,6 +648,7 @@ export default function Chat() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <ModelSwitch value={effectiveModel} onChange={chooseModel} onLocked={goToProModel} isPremium={isPremium} t={t} />
             <button
               onClick={() => setHistoryOpen(true)}
               aria-label={t("chat", "history")}

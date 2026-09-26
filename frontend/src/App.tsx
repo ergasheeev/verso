@@ -13,6 +13,7 @@ import RestaurantDetail from "@/pages/RestaurantDetail";
 import HotelDetail from "@/pages/HotelDetail";
 import Profile from "@/pages/Profile";
 import SavedPlaces from "@/pages/SavedPlaces";
+import Pro from "@/pages/Pro";
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/c/:slug"       element={<CountryHub />} />
           <Route path="/profile"       element={<Profile />} />
           <Route path="/saved"         element={<SavedPlaces />} />
+          <Route path="/pro"           element={<Pro />} />
           <Route path="/chat"          element={<Chat />} />
           <Route path="/locations"     element={<Locations />} />
           <Route path="/locations/:id" element={<LocationDetail />} />
