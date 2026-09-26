@@ -9,12 +9,18 @@ import { sendSuccess, sendError } from "@/utils/response";
 import { REFRESH_TOKEN_MS } from "@/utils/jwt";
 import { env } from "@/config/env";
 
+// Password rule: at least one letter and one digit on top of the length floor.
+// It matches what the client's passwordStrength() meter nudges toward, and is
+// enforced at both registration and reset.
 const PASSWORD_RULE = z.string().min(8).max(100)
   .regex(/[A-Za-z]/, "Password must contain at least one letter")
   .regex(/\d/, "Password must contain at least one number");
 
 function decodeExpiredToken(token: string): JwtPayload | null {
   try {
+    // ignoreExpiration: still verifies the signature, just tolerates an
+    // expired `exp` claim — safe because we only use this to look up whose
+    // session to clear, never to authorize an action.
     return jwt.verify(token, env.JWT_SECRET, { ignoreExpiration: true }) as JwtPayload;
   } catch {
     return null;
@@ -28,6 +34,10 @@ function setRefreshCookie(res: Response, token: string): void {
   res.cookie("refreshToken", token, {
     httpOnly: true,
     secure:   isProd,
+    // Frontend (Vercel) and backend (Render) live on different domains in
+    // production, so the cookie is cross-site — "strict"/"lax" would never
+    // be sent on those requests. "none" (requires secure:true) is mandatory
+    // here; "lax" is fine for local dev where both run on localhost.
     sameSite: isProd ? "none" : "lax",
     maxAge:   REFRESH_TOKEN_MS,
     path:     "/api/auth",
@@ -59,6 +69,8 @@ const loginSchema = z.object({
 
 const verifySchema = z.object({
   email: z.string().email(),
+  // Exactly 6 digits — reject malformed input before it costs a bcrypt
+  // compare and an attempts increment against the user's real code.
   code:  z.string().regex(/^\d{6}$/, "Kod 6 xonali bo'lishi kerak"),
 });
 
@@ -73,16 +85,24 @@ const forgotSchema = z.object({
 const resetSchema = z.object({
   email:       z.string().email(),
   code:        z.string().regex(/^\d{6}$/, "Kod 6 xonali bo'lishi kerak"),
+  // Same rule as registration — a reset must not become a way to set a
+  // weaker password than signup would have allowed.
   newPassword: PASSWORD_RULE,
 });
 
 // ── POST /api/auth/register ────────────────────────────
+// Returns NO session — the account is created unverified and a code is
+// emailed. The client then calls /verify-email, which is what actually
+// issues tokens.
 authRouter.post(
   "/register",
   validateBody(registerSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await authService.register(req.body as z.infer<typeof registerSchema>);
+      // devCode is non-null only in development with no SMTP configured
+      // (see issueVerificationCode) — the key is simply absent otherwise,
+      // so nothing leaks in production.
       sendSuccess(
         res,
         { email: result.email, verificationRequired: true, ...(result.devCode && { devCode: result.devCode }) },
@@ -115,6 +135,9 @@ authRouter.post(
     try {
       const { email } = req.body as z.infer<typeof resendSchema>;
       const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+      // Always answer the same way regardless of whether the account exists
+      // or is already verified — a differing response here would turn this
+      // endpoint into a free "is this address registered?" oracle.
       let devCode: string | null = null;
       if (user && !user.emailVerified) {
         devCode = await authService.issueVerificationCode(email);
@@ -147,6 +170,10 @@ authRouter.post(
       const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
       let devCode: string | null = null;
+      // A password-less account (legacy Google sign-in) has nothing to reset, so it
+      // is skipped — but the response below stays identical either way, since
+      // revealing "no account here" would let anyone probe which addresses are
+      // registered.
       if (user?.passwordHash) {
         devCode = await authService.issueVerificationCode(email, "PASSWORD_RESET");
       }
@@ -184,6 +211,9 @@ authRouter.post(
 );
 
 // ── DELETE /api/auth/logout ─────────────────────────────
+// Logout must succeed even if the access token already expired — otherwise
+// the refresh-token cookie and DB session are never cleared and the
+// "logged out" user can still mint new access tokens until it naturally expires.
 authRouter.delete(
   "/logout",
   async (req: Request, res: Response, next: NextFunction) => {
@@ -207,7 +237,12 @@ authRouter.get(
   authenticate,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+      const user = await prisma.user.findUnique({
+        where: { id: req.user!.userId },
+        include: {
+          plan: { include: { location: true }, orderBy: { createdAt: "desc" } },
+        },
+      });
       if (!user) { sendError(res, "Foydalanuvchi topilmadi", 404); return; }
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars

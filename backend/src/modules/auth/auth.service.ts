@@ -15,15 +15,28 @@ const MAX_ATTEMPTS = 5;             // per issued code, then it's burned
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
 function generateCode(): string {
+  // crypto.randomInt, not Math.random — this is a credential. Math.random
+  // is seeded predictably enough that codes could be guessed in bulk.
   return crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
 }
 
+/*
+ * Issues a fresh code for an email and sends it. Previous unused codes for that
+ * address are deleted first, so only the newest one is ever valid.
+ * 
+ * Returns the plaintext code ONLY in development with no SMTP credentials (no mail
+ * was sent, so the caller may show it to keep the flow testable), and null in
+ * every other case. The guard below makes that safe: a production deployment can
+ * never reach the branch that returns it.
+ */
 export async function issueVerificationCode(
   email: string,
   purpose: CodePurpose = "EMAIL_VERIFY"
 ): Promise<string | null> {
   const normalized = email.toLowerCase().trim();
 
+  // Cooldown is per purpose: asking to reset a password shouldn't be
+  // refused just because a verification code was sent a moment ago.
   const recent = await withRetry(() =>
     prisma.verificationCode.findFirst({
       where: { email: normalized, purpose },
@@ -32,6 +45,14 @@ export async function issueVerificationCode(
   );
   if (recent && Date.now() - recent.createdAt.getTime() < RESEND_COOLDOWN_MS) {
     const wait = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - recent.createdAt.getTime())) / 1000);
+    // Tagged like EMAIL_NOT_VERIFIED so the client can tell this 429 apart
+    // from the IP rate limiter's 429, which looks identical over the wire
+    // but means something entirely different. This one says "a code is
+    // already in your inbox" — the client should show the code screen with
+    // a countdown. The rate limiter's says "you have made too many
+    // requests", and the client must not pretend an account exists.
+    // Reading the seconds out of the message text worked, but only while
+    // every locale kept writing them as digits.
     const err = createError(`Iltimos, ${wait} soniyadan keyin qayta urinib ko'ring`, 429);
     err.code = "CODE_COOLDOWN";
     err.retryAfter = wait;
@@ -41,9 +62,13 @@ export async function issueVerificationCode(
   const code = generateCode();
   const codeHash = await bcrypt.hash(code, SALT_ROUNDS);
 
+  // Opportunistic purge of every expired row, not just this address's, so abandoned
+  // registrations cannot grow the table without bound. It costs one indexed delete
+  // on a write already being made and needs no scheduler.
   await withRetry(() =>
     prisma.verificationCode.deleteMany({ where: { expiresAt: { lt: new Date() } } })
   );
+
   await withRetry(() => prisma.verificationCode.deleteMany({ where: { email: normalized, purpose } }));
   await withRetry(() =>
     prisma.verificationCode.create({
@@ -51,12 +76,28 @@ export async function issueVerificationCode(
     })
   );
 
+  // Deliberately NOT swallowed: if the mail fails to send, the caller must
+  // know, otherwise the user sits waiting for a code that will never arrive.
   await sendVerificationCode(normalized, code, purpose);
 
+  // Both conditions required. NODE_ENV is validated by zod as a strict enum,
+  // so "development" can't be spoofed by a stray value, and a real
+  // deployment sets it to "production" — the code is never returned there
+  // even if someone forgets to configure SMTP.
   const isDevWithoutMail = env.NODE_ENV === "development" && !isMailConfigured;
   return isDevWithoutMail ? code : null;
 }
 
+/**
+ * Validates a submitted code for one specific purpose and burns it.
+ *
+ * Shared by both flows so they can't drift apart — an expiry or attempt
+ * rule enforced in one but not the other would be a silent hole. The
+ * `purpose` filter is what stops a code emailed for one flow being
+ * replayed against the other.
+ *
+ * Throws on every failure path; returns only when the code was valid.
+ */
 async function consumeCode(email: string, code: string, purpose: CodePurpose): Promise<void> {
   const record = await withRetry(() =>
     prisma.verificationCode.findFirst({
@@ -90,6 +131,11 @@ async function consumeCode(email: string, code: string, purpose: CodePurpose): P
   await withRetry(() => prisma.verificationCode.delete({ where: { id: record.id } }));
 }
 
+/**
+ * Checks a submitted code and, on success, marks the account verified and
+ * returns a normal session — verifying is the final step of registration,
+ * so the user lands logged in rather than being bounced to a login form.
+ */
 export async function verifyEmailCode(
   email: string,
   code: string
@@ -112,8 +158,10 @@ export async function verifyEmailCode(
   return { user: sanitize(verified), tokens };
 }
 
-// Completes a password reset: validates the emailed code, sets the new
-// password, and returns a fresh session.
+/**
+ * Completes a password reset: validates the emailed code, sets the new
+ * password, and returns a fresh session.
+ */
 export async function resetPassword(
   email: string,
   code: string,
@@ -135,11 +183,13 @@ export async function resetPassword(
       data: {
         passwordHash,
         // Overwriting refreshToken invalidates every other signed-in
-        // device — if the reset happened because someone else had
-        // access, leaving their session alive would defeat the point.
+        // device. If the reset happened because someone else had access,
+        // leaving their session alive would defeat the whole point.
         refreshToken: tokens.refreshToken,
         // Receiving the code proves control of the mailbox, which is
-        // exactly what verification attests to.
+        // exactly what verification attests to — so an unverified account
+        // that resets its password becomes verified rather than being
+        // stuck needing a second, redundant round of confirmation.
         emailVerified: true,
       },
     })
@@ -180,11 +230,18 @@ function buildTokens(user: User): TokenPair {
 }
 
 // ── register ──────────────────────────────────────────
+// Creates the account UNVERIFIED and issues a code — it deliberately does
+// not return tokens, because the session is only granted once the code is
+// confirmed (see verifyEmailCode). The caller gets nothing to log in with.
 export async function register(dto: RegisterDto): Promise<{ email: string; devCode: string | null }> {
   const email = dto.email.toLowerCase().trim();
 
   const exists = await withRetry(() => prisma.user.findUnique({ where: { email } }));
   if (exists) {
+    // An account that was created but never verified is not a real
+    // registration — the address might belong to someone who simply lost
+    // the email. Let them start over with a fresh code instead of being
+    // permanently blocked by their own abandoned attempt.
     if (!exists.emailVerified) {
       const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
       await withRetry(() =>
@@ -234,10 +291,24 @@ export async function login(
   );
   if (!user) throw createError("Email yoki parol noto'g'ri", 401);
 
+  // A Google-only account has no passwordHash — reject the email/password
+  // attempt with the same generic message as a wrong password, rather
+  // than a bcrypt.compare(x, null) crash or a message that reveals the
+  // account exists and is Google-only (that's an account-enumeration leak).
   if (!user.passwordHash) throw createError("Email yoki parol noto'g'ri", 401);
 
   const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
   if (!isMatch) throw createError("Email yoki parol noto'g'ri", 401);
+
+  // Credentials are correct but the address was never confirmed. Checked
+  // AFTER the password so this can't be used to enumerate which addresses
+  // have accounts. The 403 + code lets the frontend jump straight to the
+  // code screen and resend, rather than dead-ending on an error toast.
+  if (!user.emailVerified) {
+    const err = createError("Email tasdiqlanmagan", 403) as Error & { code?: string };
+    err.code = "EMAIL_NOT_VERIFIED";
+    throw err;
+  }
 
   const tokens = buildTokens(user);
 
