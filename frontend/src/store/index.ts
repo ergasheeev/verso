@@ -25,6 +25,16 @@ interface AppStore {
   isInPlan: (id: string) => boolean;
   clearPlan: () => void;
 
+  // Saved restaurants / hotels (device-local only — Prisma's UserPlan is
+  // location-only, so these never round-trip to the backend the way `plan`
+  // does; they just live in this same persisted store).
+  savedRestaurants: string[];
+  savedHotels: string[];
+  toggleSavedRestaurant: (id: string) => void;
+  toggleSavedHotel: (id: string) => void;
+  isRestaurantSaved: (id: string) => boolean;
+  isHotelSaved: (id: string) => boolean;
+
   // Language (app-level, persisted, works for guests too)
   lang: Lang;
   setLang: (lang: Lang) => void;
@@ -61,7 +71,7 @@ export const useAppStore = create<AppStore>()(
           lang: (user.lang as Lang) ?? state.lang,
         })),
 
-      logout: () => set({ user: null, isLoggedIn: false, plan: [] }),
+      logout: () => set({ user: null, isLoggedIn: false, plan: [], savedRestaurants: [], savedHotels: [] }),
 
       updateUser: (data) =>
         set((state) => ({
@@ -83,6 +93,27 @@ export const useAppStore = create<AppStore>()(
       isInPlan: (id) => get().plan.some((l) => l.id === id),
 
       clearPlan: () => set({ plan: [] }),
+
+      // ── Saved restaurants / hotels ──────────────────────
+      savedRestaurants: [],
+      savedHotels: [],
+
+      toggleSavedRestaurant: (id) =>
+        set((state) => ({
+          savedRestaurants: state.savedRestaurants.includes(id)
+            ? state.savedRestaurants.filter((r) => r !== id)
+            : [...state.savedRestaurants, id],
+        })),
+
+      toggleSavedHotel: (id) =>
+        set((state) => ({
+          savedHotels: state.savedHotels.includes(id)
+            ? state.savedHotels.filter((h) => h !== id)
+            : [...state.savedHotels, id],
+        })),
+
+      isRestaurantSaved: (id) => get().savedRestaurants.includes(id),
+      isHotelSaved: (id) => get().savedHotels.includes(id),
 
       // ── Language ──────────────────────────────────────
       lang: "en",
@@ -134,6 +165,8 @@ export const useAppStore = create<AppStore>()(
       partialize: (state) => ({
         user: state.user,
         plan: state.plan,
+        savedRestaurants: state.savedRestaurants,
+        savedHotels: state.savedHotels,
         theme: state.theme,
         lang: state.lang,
       }),
