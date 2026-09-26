@@ -6,6 +6,7 @@ import { CATEGORY_STYLE } from "@/lib/categories";
 import { plateHue } from "@/data/countries";
 import { useSpotlight } from "@/hooks/useSpotlight";
 import { useTranslation } from "@/i18n";
+import { syncAddToPlan, syncRemoveFromPlan } from "@/lib/plan-sync";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store";
 import type { Location } from "@/types";
@@ -51,9 +52,11 @@ function LocationCardImpl({ location, variant = "default", className }: Location
     e.stopPropagation();
     if (inPlan) {
       removeFromPlan(location.id);
+      syncRemoveFromPlan(location.id);
       showToast(`${location.name} ${t("card", "removed_toast")}`, undefined, "info");
     } else {
       addToPlan(location);
+      syncAddToPlan(location.id);
       showToast(`${location.name} ${t("card", "added_toast")}`, undefined, "success");
     }
   }

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useAppStore } from "@/store";
 import { apiClient } from "@/lib/api-client";
+import { mergePlanOnLogin } from "@/lib/plan-sync";
 import type { User } from "@/types";
 
 interface UseAuthReturn {
@@ -18,8 +19,12 @@ interface UseAuthReturn {
 
 export function useAuth(): UseAuthReturn {
   // Field-by-field selectors, not `useAppStore()`. Destructuring the whole
-  // store subscribes the component to EVERY slice of it, so any component
-  // that calls this hook re-renders on every unrelated state change too.
+  // store subscribes the component to EVERY slice of it — so MainLayout,
+  // which calls this hook purely for `checkAuth`, re-rendered the entire
+  // app shell (sidebar, header, nav, the routed page) on every toast that
+  // appeared or expired, every plan add/remove and every keystroke that
+  // touched store state. The actions below are stable references created
+  // once by zustand, so selecting them costs nothing.
   const user           = useAppStore((s) => s.user);
   const isLoggedIn     = useAppStore((s) => s.isLoggedIn);
   const login          = useAppStore((s) => s.login);
@@ -35,10 +40,11 @@ export function useAuth(): UseAuthReturn {
     try {
       const me = await apiClient.get<User>("/auth/me");
       login(me);
+      mergePlanOnLogin().catch(() => {});
     } catch (err) {
       // Only drop the session on an actual auth rejection (401) — a
       // transient network error here shouldn't log out a valid session,
-      // it would otherwise wipe the user's profile on a flaky connection.
+      // it would otherwise wipe the user's plan/profile on a flaky connection.
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
         localStorage.removeItem("verso-token");

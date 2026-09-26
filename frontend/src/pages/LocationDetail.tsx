@@ -12,6 +12,7 @@ import { MessageContent } from "@/components/chat/MessageContent";
 import { Kicker, Rule, PageWrap, DataRow, Button } from "@/components/ui/editorial";
 import { ParallaxHero } from "@/components/ui/ScrollMotion";
 import { useAppStore } from "@/store";
+import { syncAddToPlan, syncRemoveFromPlan } from "@/lib/plan-sync";
 import { useTranslation } from "@/i18n";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { apiClient } from "@/lib/api-client";
@@ -313,9 +314,11 @@ export default function LocationDetail() {
   function togglePlan() {
     if (inPlan) {
       removeFromPlan(loc.id);
+      syncRemoveFromPlan(loc.id);
       showToast(`${loc.name} ${t("card", "removed_toast")}`, undefined, "info");
     } else {
       addToPlan(loc);
+      syncAddToPlan(loc.id);
       showToast(`${loc.name} ${t("card", "added_toast")}`, undefined, "success");
     }
   }

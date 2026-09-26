@@ -9,6 +9,7 @@ import { Eye, EyeOff, ChevronRight, PartyPopper, CheckCircle2, AlertCircle, Load
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store";
 import { apiClient } from "@/lib/api-client";
+import { mergePlanOnLogin } from "@/lib/plan-sync";
 import { useTranslation } from "@/i18n";
 import type { User } from "@/types";
 import { Button } from "@/components/ui/editorial";
@@ -521,6 +522,7 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
 
   function finishLogin(user: User) {
     login(user);
+    mergePlanOnLogin().catch(() => {});
     onClose();
   }
 
@@ -681,6 +683,7 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
   function onVerified(user: User) {
     setDoneUser(user.name);
     login(user);
+    mergePlanOnLogin().catch(() => {});
     setStep(3);
   }
 
