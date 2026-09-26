@@ -18,7 +18,10 @@ const chatSchema = z.object({
     country: z.string().optional(),
     plan:    z.string().optional(),
     lang:    z.string().optional(),
-    // A tier name, never a Groq model id — the enum is the allowlist.
+    // A tier name, never a Groq model id. The enum is the allowlist: an
+    // unknown value is rejected at validation rather than reaching the
+    // upstream call, so this endpoint can't be used to select — or probe
+    // for — any other model on the account.
     model:   z.enum(["fast", "deep"]).optional(),
     /**
      * The reader is on a phone. Not a device string — just the one bit the
@@ -29,6 +32,12 @@ const chatSchema = z.object({
   }).optional(),
 });
 
+const analyzeSchema  = z.object({ text: z.string().min(5).max(1000), stars: z.number().int().min(1).max(5) });
+const translateSchema = z.object({
+  text: z.string().min(1).max(2000),
+  from: z.string().min(2).max(8),
+  to:   z.string().min(2).max(8),
+});
 const insightSchema  = z.object({ locationId: z.string().min(1), lang: z.string().optional() });
 const tourPlanSchema = z.object({
   tourData: z.object({
@@ -40,22 +49,26 @@ const tourPlanSchema = z.object({
   locationIds: z.array(z.string()).optional(),
 });
 
-const analyzeSchema  = z.object({ text: z.string().min(5).max(1000), stars: z.number().int().min(1).max(5) });
-
-const translateSchema = z.object({
-  text: z.string().min(1).max(2000),
-  from: z.string().min(2).max(8),
-  to:   z.string().min(2).max(8),
-});
-
 // ── POST /api/ai/chat ─────────────────────────────────
 aiRouter.post("/chat", optionalAuth, validateBody(chatSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { messages, userContext } = req.body as z.infer<typeof chatSchema>;
-      // "deep" is the Verso Pro benefit. userContext.model is client-supplied,
-      // unauthenticated input, so it decides nothing on its own — clamped
-      // against req.user.isPremium, which comes from the signed JWT.
+      // The "deep" tier is the Verso Pro benefit advertised on /pro (the
+      // long-context model). userContext.model is client-supplied and
+      // unauthenticated input, so it decides nothing on its own — it is
+      // clamped against req.user.isPremium, which comes from the signed JWT
+      // and cannot be forged. A non-premium client asking for "deep" is
+      // silently served "fast" rather than rejected: the honest client (this
+      // app) never sends "deep" unless the signed-in user is premium, so this
+      // branch only ever fires against a direct API call trying to bypass
+      // the paywall, and a silent downgrade is the right answer to that, not
+      // an error a legitimate caller could hit.
+      //
+      // "deep" now calls Gemini under the hood (falling back to Groq's own
+      // deep model if Gemini is unavailable) — see ai.service.ts's
+      // chatCompletion(). That routing is invisible here on purpose: the
+      // account-tier gate stays the only thing this endpoint decides.
       const isPremium = Boolean(req.user?.isPremium);
       const requestedModel = userContext?.model;
       const model = requestedModel === "deep" && !isPremium ? "fast" : requestedModel;

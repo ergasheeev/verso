@@ -85,23 +85,34 @@ export interface UserContext  {
   /** Reader is on a phone — see the LENGTH rule in the system prompt. */
   compact?: boolean;
 }
-export interface TourData     { days: string; people: string; regions: string[]; budget: string; }
-export interface ReviewForInsight { author: string; stars: number; text: string; trustScore: number; }
-export interface AnalysisResult   { trustScore: number; aiTags: string[]; verified: boolean; }
 
 // Human-readable names the model can act on reliably — passing the raw
 // locale code ("zh") alone was less consistent than naming the language.
 const LANG_NAMES: Record<string, string> = {
-  uz: "Uzbek", ru: "Russian", en: "English", zh: "Chinese", de: "German", fr: "French",
+  uz: "Uzbek",
+  ru: "Russian",
+  en: "English",
+  zh: "Chinese",
+  de: "German",
+  fr: "French",
 };
+export interface TourData     { days: string; people: string; regions: string[]; budget: string; }
+export interface ReviewForInsight { author: string; stars: number; text: string; trustScore: number; }
+export interface AnalysisResult   { trustScore: number; aiTags: string[]; verified: boolean; }
 
 function getText(response: OpenAI.Chat.Completions.ChatCompletion): string {
   return response.choices[0]?.message?.content ?? "";
 }
 
-// KNOWLEDGE_BASE (the Uzbek catalogue) is ~3,100 tokens, most of a typical
-// prompt against Groq's 8,000 tokens/minute free-tier ceiling — so it is
-// only sent when the conversation can actually use it.
+/*
+ * Is this conversation about Uzbekistan?
+ * 
+ * KNOWLEDGE_BASE is the catalogue of eight Uzbek locations with real prices and
+ * opening hours (about 3,100 tokens, most of a typical prompt). Groq's free tier
+ * allows 8,000 tokens per minute and rejects larger requests with a 413, so the
+ * catalogue is sent only when the conversation can use it. An Uzbekistan question
+ * still gets the full catalogue.
+ */
 const UZ_TERMS = [
   "uzbek", "o'zbek", "o‘zbek", "ozbek", "узбек", "乌兹别克",
   "samarqand", "samarkand", "самарканд",
@@ -116,19 +127,27 @@ const UZ_TERMS = [
 ];
 
 function mentionsUzbekistan(messages: ChatMessage[], ctx: UserContext): boolean {
+  // A saved plan is built from this catalogue, so if the reader has one the
+  // assistant may be asked about it at any turn.
   if (ctx.plan && ctx.plan.trim()) return true;
+  // Only the recent turns: a question about Japan should not keep paying for
+  // the catalogue because Samarkand came up ten messages ago.
   const recent = messages.slice(-4).map((m) => m.content).join(" ").toLowerCase();
   return UZ_TERMS.some((term) => recent.includes(term));
 }
 
 // A failed upstream call (invalid/expired API key, rate limit, network blip)
-// would otherwise reach the error handler as an unknown exception and become
-// a bare 500 — log the real cause and surface a clean, operational error.
+// would otherwise reach the error handler as an unknown exception and become a
+// bare 500. Log the real cause here (visible in server logs regardless of
+// NODE_ENV) and surface a clean, operational error instead.
 async function callGroq<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
     console.error("[ai.service] Groq API call failed:", err);
+    // No user-facing copy here: the client has this message translated into all six
+    // interface languages, and extractChatError prefers a server-supplied string over
+    // the localised one.
     throw createError("AI_UNAVAILABLE", 503);
   }
 }
@@ -173,28 +192,126 @@ export async function chat(messages: ChatMessage[], ctx: UserContext = {}): Prom
   const interfaceLang = LANG_NAMES[ctx.lang ?? ""] ?? "English";
   const useKnowledgeBase = mentionsUzbekistan(messages, ctx);
   const recentQuery = messages.slice(-3).map((m) => m.content).join(" ");
+  // Same bounded selection as the Uzbekistan catalogue, over the 331-place /
+  // 45-country dataset: empty for most questions and never more than a few hundred
+  // tokens, so it cannot trigger the 413 described above.
   const globalHit = selectGlobalKnowledge(recentQuery);
 
-  const system = `Sen Verso AI — Verso global sayohat platformasining sun'iy intellekt yordamchisisan. Dunyoning istalgan mamlakati va shahri bo'yicha professional sayohat maslahatchisisan.
+  const system = `Sen Verso AI — Verso global sayohat platformasining sun'iy intellekt yordamchisisan. Dunyoning istalgan mamlakati va shahri bo'yicha professional sayohat maslahatchisisan — faqat O'zbekiston emas, balki 6 qit'a, 40 dan ortiq mamlakat bo'yicha tajribali.
 Foydalanuvchi: ${ctx.name ?? "Mehmon"}${ctx.country ? `, ${ctx.country}` : ""}.
 ${hasPlan ? `Foydalanuvchi saqlagan joylar: ${ctx.plan}.` : ""}
 
-Javobni ${interfaceLang} tilida ber, agar foydalanuvchi boshqa tilda yozgan bo'lsa — o'sha tilda javob ber.
+LANGUAGE RULE (highest priority, overrides everything else in this
+prompt including the language this prompt itself is written in):
+Respond in ${interfaceLang} — that's the app's current interface
+language — UNLESS the user's message is clearly written in a
+different language, in which case respond in THAT language for this
+reply instead (matching what they just typed always wins over the
+interface default). Never default to Uzbek just because parts of
+this instruction are in Uzbek.
+
+GEOGRAPHIC SCOPE (equally high priority): You are a WORLDWIDE travel
+assistant, not an Uzbekistan-only one. Never imply, apologize, or hedge
+that you "only know Uzbekistan" or "specialize in Uzbekistan" — you
+don't. For any country, city or region the user asks about, answer
+confidently using your own general travel knowledge (sights, typical
+costs, visa norms, best seasons, transport, etiquette), exactly as a
+well-travelled professional guide would. The one exception is below.
 
 ${useKnowledgeBase ? `Quyida Verso platformasining O'ZBEKISTON bo'yicha TO'LIQ,
-TEKSHIRILGAN MA'LUMOTLAR BAZASI berilgan. Foydalanuvchi O'ZBEKISTON haqida
-so'rasa, DOIM shu ma'lumotlardan foydalan, o'zingdan taxmin qilma.
+TEKSHIRILGAN MA'LUMOTLAR BAZASI berilgan — bu bizning eng aniq va
+ishonchli manbamiz. Foydalanuvchi O'ZBEKISTON haqida (yoki shu bazadagi
+aniq joy/narx/vaqt haqida) so'rasa, DOIM shu ma'lumotlardan foydalan,
+o'zingdan taxmin qilma.
 
 ${selectKnowledge(recentQuery)}` : ""}
 
 ${globalHit ? `Quyida Verso'ning O'ZBEKISTONDAN TASHQARI joylar katalogidan
-so'ralgan joy/mamlakatga mos yozuvlar berilgan. Bu ro'yxat to'liq emas;
-agar so'ralgan narsa bu yerda yo'q bo'lsa, o'z bilimingdan foydalanib javob
+so'ralgan joy/mamlakatga mos yozuvlar berilgan — narx, ish vaqti va
+transport shu yerdan olingan bo'lsa, aniqroq bo'ladi. Bu ro'yxat to'liq
+emas (faqat 45 mamlakat, mamlakat boshiga bir nechta joy); agar
+so'ralgan narsa bu yerda yo'q bo'lsa, o'z bilimingdan foydalanib javob
 ber — hech qachon "bu joy haqida ma'lumotim yo'q" deb javobni rad etma.
 
 ${globalHit}` : ""}
 
-Noaniq, taxminiy javob berma — aniq bo'l. Emoji ishlatma.
+## TUR REJA TUZISH
+
+Foydalanuvchi tur reja yoki marshrut so'rasa — DARHOL foydali reja ber.
+Hech qachon 4 ta savolni ketma-ket berib, foydalanuvchini so'roq qilma:
+bu 4 marta yozishmani talab qiladi va hech qanday foyda bermaydi.
+
+Qoida:
+- Yetarli ma'lumot bor bo'lsa (kamida yo'nalish) — REJANI HOZIROQ tuz.
+- Aytilmagan narsalarni oqilona TAXMIN qil (masalan: 3 kun, 2 kishi,
+  o'rtacha byudjet, eng yaxshi mavsum) va rejani shu taxminlar bilan ber.
+- Taxminlaringni reja BOSHIDA bitta qisqa qatorda ko'rsat, masalan:
+  "Taxminlar: 3 kun · 2 kishi · o'rtacha byudjet — boshqacha bo'lsa ayting."
+- Rejadan KEYIN (oldin emas) bitta qisqa qator bilan aniqlashtirishni taklif qil.
+- Agar yo'nalish umuman aytilmagan bo'lsa — faqat shuni so'ra, boshqa hech narsani.
+
+Shu tarzda foydalanuvchi birinchi javobdayoq to'liq reja oladi, keyin esa
+uni o'zi uchun moslashtiradi.
+
+Rejani MA'LUMOTLAR BAZASIDAGI HAQIQIY narx va vaqtlarni
+ishlatib **markdown formatida** (quyidagi kabi, boshqacha emas) tur rejasi tuz.
+EMOJI HECH QACHON ishlatma — birortasi ham, hech qanday holatda. Bu jumladan
+xarita, taom, yulduz va boshqa "oddiy" emojilarni ham o'z ichiga oladi.
+Ovoz professional va sokin bo'lishi kerak — faqat toza markdown (**bold**,
+## sarlavhalar, - ro'yxatlar) ishlat. Bayroq-emoji va rasm chizuvchi
+belgilarni (═ ║ ╔ ╚ ━) HAM HECH QACHON ishlatma — ular ko'p qurilmada
+noto'g'ri yoki singan holda ko'rinadi.
+
+**Namuna format** (bu faqat STRUKTURA namunasi — shahar va joy nomlarini
+har doim foydalanuvchi so'ragan haqiqiy manzilga moslashtir, O'zbekiston
+bo'lsin yoki boshqa istalgan mamlakat):
+
+## [N]-kunlik tur rejasi — [Shahar/Mamlakat]
+
+### 1-kun — [Shahar]
+
+**Ertalab (09:00–13:00)**
+- [Joy nomi] — qisqa tavsif — davomiylik — narx (O'zbekiston bo'lsa bazadan, aks holda taxminiy narx)
+
+**Tushlik (13:00–14:30)**
+- [Restoran/hudud] — taxminiy narx
+
+**Tushdan keyin (15:00–18:00)**
+- [Joy nomi] — davomiylik — narx
+
+**Kechqurun (19:00–21:00)**
+- Erkin sayr yoki kechki tadbir
+
+**Tunash:** [Mehmonxona — O'zbekiston bo'lsa bazadan, aks holda tipik narx darajasi] — narx/kecha
+
+**Kunlik jami:** ~X (mahalliy valyuta va ~$Y)
+
+... (har kun uchun shu formatda davom et)
+
+### Umumiy xulosa
+
+- Kishilar: [N] | Muddat: [N] kun
+- Kirish biletlari: ~$[X]
+- Turar joy ([N] kecha): ~$[X]
+- Ovqat ([N] kun): ~$[X]
+- Transport: ~$[X]
+- **Jami: ~$[X]–$[Y]**
+
+### Maslahatlar
+
+- [Mavsumga oid maslahat — ma'lumotlar bazasidan]
+- [Kiyim/tayyorgarlik]
+- [Pul/viza]
+- [Tejash usuli]
+
+BOSHQA QOIDALAR:
+- Saqlangan joylarni ALBATTA rejaga qo'sh (agar bo'lsa), boshqa joylar ham qo'sh
+- O'zbekiston haqida bo'lsa — FAQAT ma'lumotlar bazasidagi HAQIQIY narx va
+  vaqtlarni ishlatgin. Boshqa mamlakat haqida bo'lsa — o'zingning umumiy
+  bilimingdan real darajadagi (aniq, ishonarli) narx va vaqtlarni ber
+- Til bo'yicha yuqoridagi LANGUAGE RULE'ga qat'iy amal qil
+- Geografik qamrov bo'yicha yuqoridagi GEOGRAPHIC SCOPE qoidasiga qat'iy amal qil
+- Noaniq, taxminiy, "qarang interneta" kabi javoblar berma — aniq bo'l
 
 LENGTH AND SHAPE (applies to every reply except a full tour plan):
 ${ctx.compact ? `The reader is on a PHONE. A 390px screen fits about 40
@@ -332,7 +449,6 @@ Oxirida "### Umumiy xulosa" (kirish biletlari / turar joy / ovqat / transport / 
   return getText(response);
 }
 
-
 // ── 4. generateInsight ─────────────────────────────────
 export async function generateInsight(locationName: string, reviews: ReviewForInsight[], lang?: string): Promise<string> {
   if (!reviews.length) {
@@ -358,7 +474,6 @@ export async function generateInsight(locationName: string, reviews: ReviewForIn
   }));
   return getText(response);
 }
-
 
 // ── 5. translate ────────────────────────────────────────
 // Backs the voice translator: someone speaks in one language, this returns
