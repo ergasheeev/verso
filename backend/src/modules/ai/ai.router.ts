@@ -43,10 +43,17 @@ const tourPlanSchema = z.object({
   tourData: z.object({
     days:    z.string().min(1),
     people:  z.string().min(1),
-    regions: z.array(z.string()).min(1),
+    // Empty means "choose the route for me" — valid once a country is named.
+    regions: z.array(z.string().min(1).max(80)).max(12),
     budget:  z.string().min(1),
+    country:     z.string().regex(/^[A-Za-z]{2}$/).optional(),
+    countryName: z.string().max(80).optional(),
+  }).refine((d) => d.regions.length > 0 || !!d.country, {
+    message: "Pick a destination",
+    path: ["regions"],
   }),
   locationIds: z.array(z.string()).optional(),
+  lang: z.string().optional(),
 });
 
 // ── POST /api/ai/chat ─────────────────────────────────
@@ -112,12 +119,16 @@ aiRouter.post("/translate", optionalAuth, validateBody(translateSchema),
 aiRouter.post("/tour-plan", authenticate, validateBody(tourPlanSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { tourData, locationIds } = req.body as z.infer<typeof tourPlanSchema>;
+      const { tourData, locationIds, lang } = req.body as z.infer<typeof tourPlanSchema>;
+      const isUzbekistan = !tourData.country || tourData.country.toUpperCase() === "UZ";
 
-      let locations;
+      // The Location table is the curated Uzbekistan catalogue. Matching a
+      // trip to Rome against it by city name can only return nothing — or a
+      // false hit — so other destinations skip it.
+      let locations: Awaited<ReturnType<typeof prisma.location.findMany>> = [];
       if (locationIds?.length) {
         locations = await prisma.location.findMany({ where: { id: { in: locationIds } } });
-      } else {
+      } else if (isUzbekistan && tourData.regions.length) {
         const regionFilters = tourData.regions.map((r) => ({
           OR: [
             { region: { contains: r, mode: "insensitive" as const } },
@@ -131,7 +142,7 @@ aiRouter.post("/tour-plan", authenticate, validateBody(tourPlanSchema),
         });
       }
 
-      const plan = await aiService.generateTourPlan(tourData, locations);
+      const plan = await aiService.generateTourPlan(tourData, locations, lang);
       sendSuccess(res, { plan });
     } catch (err) { next(err); }
   }

@@ -408,49 +408,58 @@ export default function Landing() {
           </Reveal>
 
           <Reveal stagger>
-            {/* max-w-4xl: at full container width the name, tagline and price
-                landed in three widely separated islands per row. */}
-            <ul className="max-w-4xl">
-              {FEATURED_COUNTRIES.map((c) => (
-                <motion.li key={c.code} variants={item}>
+            {/* Two ruled columns from lg up. One column capped at max-w-4xl left
+                the right third of the page empty under a full-width rule, and
+                seventeen rows stacked in a single column ran two screens long. */}
+            <ul className="grid lg:grid-cols-2 lg:gap-x-14">
+              {FEATURED_COUNTRIES.map((c, i) => (
+                <motion.li key={c.code} variants={item} className="min-w-0">
                   <button
                     onClick={() => navigate(`/c/${c.slug}`)}
-                    className="group w-full text-left hairline-b py-4
-                               grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-4
-                               lg:grid-cols-[auto_12.5rem_minmax(0,1fr)_auto_auto] lg:gap-x-6
-                               transition-transform duration-400 hover:translate-x-1.5"
+                    className="group relative w-full text-left hairline-b py-4 sm:py-5
+                               grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-4 sm:gap-x-5
+                               transition-colors duration-400"
                   >
+                    {/* Gold rail slides in from the left edge on hover — the same
+                        mechanism as the footer links, instead of nudging the
+                        whole row sideways. */}
+                    <span
+                      aria-hidden
+                      className="absolute left-0 bottom-[-1px] h-px w-full bg-[var(--gold-hairline)] scale-x-0 origin-left
+                                 group-hover:scale-x-100 transition-transform duration-500 ease-editorial"
+                    />
                     {/* The flag is the plate: 3:2 like the flag itself, so it
                         fills the box edge to edge — no padding, no beige
                         margin, nothing cropped or stretched. */}
                     <FlagTile
                       code={c.code}
-                      className="transition-transform duration-400 group-hover:scale-[1.08]"
+                      className="transition-transform duration-400 group-hover:scale-[1.06]"
                     />
-                    <span className="min-w-0">
-                      {/* sm:truncate, not truncate: on a phone this column has the row to itself, so a
-                          name like "United Arab Emirates" wraps instead of being cut mid-word. It only
-                          truncates from sm up, where it shares the row with the tagline and the price. */}
-                      <span className="block font-display text-[19px] min-[400px]:text-[21px] leading-tight text-ink break-words sm:truncate route-underline">
+                    {/* Index number in its own column so the name and the
+                        tagline share one left edge beside it. */}
+                    <span className="min-w-0 grid sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-2.5 items-baseline">
+                      <span className="mono text-[10.5px] text-subtle/60 hidden sm:block">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      {/* sm:truncate, not truncate: on a phone a name like
+                          "United Arab Emirates" wraps instead of being cut mid-word. */}
+                      <span className="min-w-0 font-display text-[19px] min-[400px]:text-[21px] leading-tight text-ink break-words sm:truncate
+                                       group-hover:text-accent transition-colors duration-400">
                         {countryName(c, lang)}
                       </span>
                       {/* Two lines, ending on a word. A one-line truncate
                           cut these sentences at an arbitrary character —
                           "Petra is the headline. Wadi Rum is t…" */}
-                      <span className="block text-[12.5px] leading-snug text-subtle line-clamp-2 mt-1 lg:hidden">
+                      <span className="sm:col-start-2 text-[12.5px] sm:text-[13px] leading-snug text-subtle line-clamp-2 mt-1">
                         {c.tagline}
                       </span>
-                    </span>
-                    {/* lg:, not sm: — see the matching note in Atlas.tsx. At 640px
-                        (a 200% zoom) this sentence truncated mid-word. */}
-                    <span className="hidden lg:block min-w-0 text-[13px] text-subtle truncate">
-                      {c.tagline}
                     </span>
                     <span className="tabular text-[12px] text-accent justify-self-end">
                       {priceMark(c.priceLevel)}
                     </span>
                     <ArrowUpRight
-                      className="hidden sm:block w-4 h-4 text-subtle opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-400"
+                      className="w-4 h-4 text-subtle sm:opacity-40 group-hover:opacity-100 group-hover:text-accent
+                                 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-400"
                       aria-hidden
                     />
                   </button>
@@ -462,21 +471,27 @@ export default function Landing() {
 
         {/* ── Closing ──────────────────────────────────────────── */}
         <Reveal className="pb-20">
-          <div className="border border-[var(--gold-hairline)] rounded-sm p-8 sm:p-14 bg-[var(--gold-soft)]">
-            <div className="flex items-center gap-3 mb-6">
-              <PremiumSeal />
-              <Kicker>{t("landing", "membership_kicker")}</Kicker>
+          {/* Text left, actions right from lg up: stacked at full width the
+              panel's right half was an empty gold field. */}
+          <div className="relative overflow-hidden border border-[var(--gold-hairline)] rounded-xl p-8 sm:p-14 bg-[var(--gold-soft)]
+                          grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-16">
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <PremiumSeal />
+                <Kicker>{t("landing", "membership_kicker")}</Kicker>
+              </div>
+              {/* break-words: German sets this headline as two very long
+                  compounds ("Einhundertdreiundfünfzig…") that overran the
+                  panel by 111px on a 320px screen. text-balance keeps a lone
+                  "go." from dropping onto a third line. */}
+              <h2 className="font-display text-[26px] sm:text-display-sm leading-[1.1] text-ink max-w-[24ch] mb-5 break-words hyphens-auto [text-wrap:balance]">
+                {t("landing", "final_cta_title")}
+              </h2>
+              <p className="text-[14px] leading-relaxed text-subtle max-w-[52ch]">
+                {t("landing", "final_cta_desc")}
+              </p>
             </div>
-            {/* break-words: German sets this headline as two very long
-                compounds ("Einhundertdreiundfünfzig…") that overran the
-                panel by 111px on a 320px screen. */}
-            <h2 className="font-display text-[26px] sm:text-display-sm leading-[1.1] text-ink max-w-[20ch] mb-5 break-words hyphens-auto">
-              {t("landing", "final_cta_title")}
-            </h2>
-            <p className="text-[14px] leading-relaxed text-subtle max-w-[52ch] mb-8">
-              {t("landing", "final_cta_desc")}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 lg:justify-end">
               {isLoggedIn ? (
                 <Button onClick={enterApp}>{t("landing", "open_app")}</Button>
               ) : (

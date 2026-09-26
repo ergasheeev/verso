@@ -25,11 +25,17 @@ const createSchema = z
     contactPhone: z.string().min(5).max(30),
   })
   .refine((d) => d.checkOut > d.checkIn, {
-    message: "Chiqish sanasi kirish sanasidan keyin bo'lishi kerak",
+    message: "Check-out must be after check-in",
     path: ["checkOut"],
   })
-  .refine((d) => d.checkIn >= new Date(new Date().toDateString()), {
-    message: "Kirish sanasi o'tmishda bo'la olmaydi",
+  // "Today" is the guest's date, not the server's. A date-only "2026-03-10"
+  // parses as UTC midnight, and a guest in UTC-8 is still on the 10th when
+  // the server has rolled to the 11th — comparing against the server's own
+  // midnight rejected their same-day booking. 36 hours of slack covers every
+  // time zone (UTC-12 to UTC+14); the cost is that a guest near UTC can send
+  // yesterday's date, which the person following up by phone will catch.
+  .refine((d) => d.checkIn.getTime() >= Date.now() - 36 * 60 * 60 * 1000, {
+    message: "Check-in can't be in the past",
     path: ["checkIn"],
   });
 
@@ -46,7 +52,7 @@ bookingRouter.post(
       const booking = await prisma.bookingRequest.create({
         data: { ...body, userId: req.user?.userId },
       });
-      sendSuccess(res, booking, "Bron so'rovi qabul qilindi", 201);
+      sendSuccess(res, booking, "Booking request received", 201);
     } catch (err) {
       next(err);
     }

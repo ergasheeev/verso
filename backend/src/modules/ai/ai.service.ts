@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 import { env } from "@/config/env";
 import type { Location } from "@prisma/client";
-import { KNOWLEDGE_BASE, selectKnowledge } from "@/data/knowledge-base";
-import { selectGlobalKnowledge } from "@/data/global-knowledge-base";
+import { selectKnowledge } from "@/data/knowledge-base";
+import { selectGlobalKnowledge, countryKnowledge } from "@/data/global-knowledge-base";
 import { createError } from "@/middleware/error-handler";
 import { createRateLimiter } from "@/lib/rate-limiter";
 
@@ -96,7 +96,18 @@ const LANG_NAMES: Record<string, string> = {
   de: "German",
   fr: "French",
 };
-export interface TourData     { days: string; people: string; regions: string[]; budget: string; }
+export interface TourData {
+  days: string;
+  people: string;
+  /** Cities or regions inside the destination; may be empty ("you choose"). */
+  regions: string[];
+  budget: string;
+  /** ISO 3166-1 alpha-2 of the destination. Absent means Uzbekistan, which
+   *  is what every client sent before the builder went worldwide. */
+  country?: string;
+  /** Display name of the destination in the reader's language. */
+  countryName?: string;
+}
 export interface ReviewForInsight { author: string; stars: number; text: string; trustScore: number; }
 export interface AnalysisResult   { trustScore: number; aiTags: string[]; verified: boolean; }
 
@@ -383,7 +394,7 @@ export async function analyzeReview(text: string, stars: number): Promise<Analys
         content: `Return ONLY valid JSON, no markdown:
 {"trustScore":number,"aiTags":string[]}
 trustScore: 70-100=genuine detail, 40-69=generic/short, 0-39=spam/bot
-aiTags: 2-4 uzbek topic keywords`,
+aiTags: 2-4 short lowercase topic keywords, in the same language the review is written in`,
       },
       { role: "user", content: `Review (${stars} stars): "${text}"` },
     ],
@@ -406,10 +417,37 @@ aiTags: 2-4 uzbek topic keywords`,
 }
 
 // ── 3. generateTourPlan ────────────────────────────────
-export async function generateTourPlan(tourData: TourData, locations: Location[]): Promise<string> {
+/**
+ * Structured itinerary from the tour builder.
+ *
+ * Used to be Uzbekistan-only in three ways at once: it always sent the whole
+ * Uzbek catalogue as the source of truth, asked for prices "in so'm", and
+ * had no language instruction — so a German reader planning Japan got an
+ * Uzbek-language plan priced against Samarkand. Now the destination picks
+ * the reference data (the curated Uzbek catalogue for UZ, that country's
+ * slice of the global catalogue otherwise, general knowledge beyond it),
+ * prices are in the destination's own currency plus USD, and the reply is
+ * in the reader's interface language.
+ */
+export async function generateTourPlan(
+  tourData: TourData,
+  locations: Location[],
+  lang?: string,
+): Promise<string> {
+  const interfaceLang = LANG_NAMES[lang ?? ""] ?? "English";
+  const country = tourData.country?.toUpperCase();
+  const isUzbekistan = !country || country === "UZ";
+  const destination = [tourData.regions.join(", "), tourData.countryName].filter(Boolean).join(" — ");
+
   const list = locations
-    .map((l) => `• ${l.name} (${l.city}): ${l.shortDesc ?? ""} — ~$${l.priceUSD}`)
+    .map((l) => `- ${l.name} (${l.city}): ${l.shortDesc ?? ""} — ~$${l.priceUSD}`)
     .join("\n");
+
+  // Bounded either way: the full Uzbek catalogue alone is ~3,100 tokens, and
+  // Groq's free tier caps a minute at 8,000 including this reply's budget.
+  const reference = isUzbekistan
+    ? selectKnowledge([...tourData.regions, ...locations.map((l) => l.name)].join(" "))
+    : countryKnowledge(country!, tourData.regions);
 
   const response = await callGroq(() => client.chat.completions.create({
     model: MODEL,
@@ -417,32 +455,45 @@ export async function generateTourPlan(tourData: TourData, locations: Location[]
     messages: [
       {
         role: "system",
-        content: `Sen Verso platformasining professional tur rejasi generatorisan. Quyidagi ma'lumotlar bazasidagi HAQIQIY narx va vaqtlarni ishlat:\n${KNOWLEDGE_BASE}`,
+        content: `You are Verso's professional itinerary planner — a worldwide travel expert.
+
+LANGUAGE: write the entire plan in ${interfaceLang}. The reference notes below
+may be in Uzbek; that never changes the language of your answer.
+
+REFERENCE DATA: ${reference
+  ? `when a place below is in the plan, use its real prices, opening hours and
+transport exactly as given. For anything not covered, use accurate, realistic
+figures from your own knowledge — never refuse or say you lack data.
+
+${reference}`
+  : "none for this destination — use accurate, realistic figures from your own knowledge."}
+
+STYLE: markdown only (## / ### headings, **bold**, - lists). Never use emoji,
+flag emoji, or box-drawing characters (═ ║ ╔ ╚ ━). Calm, professional voice.`,
       },
       {
         role: "user",
-        content: `Quyidagi parametrlar asosida PROFESSIONAL tur rejasi tuz:
-Davomiylik: ${tourData.days} kun
-Kishilar: ${tourData.people}
-Viloyatlar: ${tourData.regions.join(", ")}
-Byudjet: ${tourData.budget}
+        content: `Build a day-by-day itinerary.
+Destination: ${destination || "the most rewarding region of the country"}
+Duration: ${tourData.days}
+Travellers: ${tourData.people}
+Budget: ${tourData.budget}
+${list ? `\nMust include these saved places:\n${list}\n` : ""}${
+  tourData.regions.length ? "" : "\nNo cities were specified — choose the best route for the duration yourself and say why in one line.\n"}
+Use this shape for every day:
 
-Borilishi kerak bo'lgan joylar:
-${list || "Barcha mashhur joylar (ma'lumotlar bazasidan tanlang)"}
+### Day N — City
+**Morning (09:00–13:00):** place — time needed — price
+**Lunch (13:00–14:30):** restaurant or area — dish — price
+**Afternoon (15:00–18:00):** place — time needed — price
+**Evening (19:00–21:00):** activity
+**Stay:** hotel or area — price per night
+**Day total:** ~X ${isUzbekistan ? "UZS" : "(local currency)"} (~$Y)
 
-Markdown formatida yoz. EMOJI HECH QACHON ishlatma, bayroq-emoji va
-═ ║ ╔ ╚ ━ kabi chizuvchi belgilarni ham ishlatma — ovoz professional
-va sokin bo'lishi kerak:
-
-### N-kun — Shahar
-**Ertalab (09:00–13:00):** joy — vaqt — narx so'mda/$da
-**Tushlik (13:00–14:30):** restoran — taom — narx
-**Tushdan keyin (15:00–18:00):** joy — vaqt — narx
-**Kechqurun (19:00–21:00):** faoliyat
-**Tunash:** mehmonxona — narx/kecha
-**Kunlik jami:** ~X so'm (~$Y)
-
-Oxirida "### Umumiy xulosa" (kirish biletlari / turar joy / ovqat / transport / jami) va "### Maslahatlar" bo'limlari.`,
+Translate these headings into ${interfaceLang}. Quote prices in the local
+currency with a USD equivalent. Finish with a "Summary" section (entry
+tickets / accommodation / food / transport / total) and a "Tips" section
+(season, what to pack, money and visa, how to save).`,
       },
     ],
   }));
@@ -450,9 +501,20 @@ Oxirida "### Umumiy xulosa" (kirish biletlari / turar joy / ovqat / transport / 
 }
 
 // ── 4. generateInsight ─────────────────────────────────
+const NO_REVIEWS_YET: Record<string, (place: string) => string> = {
+  en: (p) => `There aren't enough reviews of ${p} yet.\nBe the first to leave one!`,
+  uz: (p) => `${p} haqida hali yetarli sharhlar yo'q.\nBirinchi bo'lib sharh qoldiring!`,
+  ru: (p) => `О месте «${p}» пока мало отзывов.\nОставьте первый!`,
+  de: (p) => `Zu ${p} gibt es noch nicht genug Bewertungen.\nSchreiben Sie die erste!`,
+  fr: (p) => `Il n'y a pas encore assez d'avis sur ${p}.\nSoyez le premier à en laisser un !`,
+  zh: (p) => `${p} 的评价还不够多。\n来写第一条评价吧！`,
+};
+
 export async function generateInsight(locationName: string, reviews: ReviewForInsight[], lang?: string): Promise<string> {
   if (!reviews.length) {
-    return `${locationName} haqida hali yetarli sharhlar yo'q.\nBirinchi bo'lib sharh qoldiring!`;
+    // In the reader's language like the model's own answer below — this
+    // branch used to answer every reader in Uzbek.
+    return (NO_REVIEWS_YET[lang ?? ""] ?? NO_REVIEWS_YET.en)(locationName);
   }
 
   const avg = (reviews.reduce((s, r) => s + r.stars, 0) / reviews.length).toFixed(1);

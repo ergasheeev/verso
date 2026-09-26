@@ -2503,3 +2503,26 @@ export function selectGlobalKnowledge(query: string): string {
   // put the request back over budget.
   return hits.slice(0, 4).join("\n\n");
 }
+
+/**
+ * Every catalogue entry for one country, for the tour planner.
+ *
+ * selectGlobalKnowledge() matches words, and a country name only ever hits
+ * the bare "🌍 ITALY (IT)" header line — so a trip request for Italy got the
+ * header and none of the places under it. The planner already knows the
+ * country code, so it takes that country's block directly, putting entries
+ * in the requested cities first. Capped like the other selectors so a
+ * request cannot outgrow the per-minute token budget.
+ */
+export function countryKnowledge(code: string, cities: string[] = [], limit = 8): string {
+  const block = GLOBAL_KNOWLEDGE_BASE.split(/\n═+\n/)
+    .map((s) => s.trim())
+    .find((b) => b.split("\n")[0].includes(`(${code.toUpperCase()})`));
+  if (!block) return "";
+
+  const [header, ...rest] = block.split(/\n(?=[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㉑㉒㉓㉔㉕㉖㉗㉘㉙㉚]\s)/);
+  const wanted = cities.map((c) => c.toLowerCase());
+  const inCity = (u: string) => wanted.some((c) => u.split("\n")[0].toLowerCase().includes(c));
+  const entries = [...rest.filter(inCity), ...rest.filter((u) => !inCity(u))];
+  return [header.trim(), ...entries.slice(0, limit).map((u) => u.trim())].join("\n\n");
+}
