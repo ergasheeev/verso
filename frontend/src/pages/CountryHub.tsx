@@ -16,6 +16,7 @@ import { useAppStore } from "@/store";
 import { useTranslation } from "@/i18n";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { FlagTile } from "@/components/shared/Flag";
+import { LocalTime } from "@/components/country/LocalTime";
 import { countryName, capitalName } from "@/data/countries.i18n";
 import { useCountryProse } from "@/data/country-prose";
 import { COUNTRY_IMAGES } from "@/data/country-images";
@@ -181,6 +182,16 @@ export default function CountryHub() {
 
           {/* Right: the facts */}
           <aside className="lg:sticky lg:top-6 lg:self-start space-y-10">
+            {/* Above Essentials on purpose: it is the only fact on this page
+                that changes while you are reading it. */}
+            <section>
+              <Kicker className="mb-3">{t("country", "local_time")}</Kicker>
+              <Rule />
+              <div className="pt-4">
+                <LocalTime code={c.code} />
+              </div>
+            </section>
+
             <section>
               <Kicker className="mb-3">{t("country", "essentials")}</Kicker>
               <Rule />
