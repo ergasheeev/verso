@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { CommandPalette } from "@/components/shared/CommandPalette";
 import { Toaster } from "@/components/ui/Toaster";
 import Landing from "@/pages/Landing";
 import Auth from "@/pages/Auth";
@@ -42,6 +43,7 @@ export default function App() {
         </Route>
       </Routes>
       <AuthModal />
+      <CommandPalette />
       <Toaster />
     </BrowserRouter>
   );
