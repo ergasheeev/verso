@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/editorial";
 import { ScrollRow } from "@/components/ui/ScrollRow";
 import { CATEGORY_STYLE } from "@/lib/categories";
+import { useTour } from "@/components/ui/Tour";
 import { useTranslation, LANGUAGE_OPTIONS } from "@/i18n";
 import type { Lang } from "@/i18n";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -231,6 +232,7 @@ export default function Profile() {
   useDocumentTitle(t("profile", "title"));
   const [tab, setTab] = useState<ProfileTab>("saved");
   const [editingProfile, setEditingProfile] = useState(false);
+  const { startTour } = useTour();
   const {
     user, isLoggedIn, logout, plan, lang, setLang, removeFromPlan,
     theme, toggleTheme, openAuthModal, userReviews, showToast, updateUser,
@@ -674,6 +676,11 @@ export default function Profile() {
                 </section>
 
                 <section className="flex flex-col sm:flex-row gap-2">
+                  {/* Lets a user who skipped the tour replay it; the "seen" flag is persisted. */}
+                  <Button variant="secondary" onClick={startTour}>
+                    <Compass className="w-4 h-4" aria-hidden />
+                    {t("tour", "restart")}
+                  </Button>
                   <Button
                     variant="danger"
                     onClick={() => showToast(t("profile", "delete_account_soon"), undefined, "info")}

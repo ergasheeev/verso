@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { CommandPalette } from "@/components/shared/CommandPalette";
+import { TourProvider } from "@/components/ui/Tour";
+import { useAppStore } from "@/store";
 import { Toaster } from "@/components/ui/Toaster";
 import Landing from "@/pages/Landing";
 import Auth from "@/pages/Auth";
@@ -20,7 +22,9 @@ import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 
 export default function App() {
+  const markTourSeen = useAppStore((s) => s.markTourSeen);
   return (
+    <TourProvider onComplete={markTourSeen}>
     <BrowserRouter>
       <Routes>
         <Route path="/login"  element={<Auth />} />
@@ -46,5 +50,6 @@ export default function App() {
       <CommandPalette />
       <Toaster />
     </BrowserRouter>
+    </TourProvider>
   );
 }

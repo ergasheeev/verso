@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Masthead } from "./Masthead";
 import { BottomNav } from "./BottomNav";
+import { TourRunner } from "./TourRunner";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { cn } from "@/lib/utils";
 import { ScrollProgress } from "@/components/ui/ScrollMotion";
@@ -50,6 +51,7 @@ export function MainLayout() {
         </PageTransition>
       </main>
       {!isDesktop && <BottomNav />}
+      {isDesktop && <TourRunner />}
     </div>
   );
 }

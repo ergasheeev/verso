@@ -51,6 +51,10 @@ interface AppStore {
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
 
+  // Persisted so the onboarding tour greets a visitor exactly once.
+  tourSeen: boolean;
+  markTourSeen: () => void;
+
   // Toasts
   toasts: Toast[];
   showToast: (message: string, icon?: string, type?: Toast["type"]) => void;
@@ -143,6 +147,9 @@ export const useAppStore = create<AppStore>()(
       searchOpen: false,
       setSearchOpen: (open) => set({ searchOpen: open }),
 
+      tourSeen: false,
+      markTourSeen: () => set({ tourSeen: true }),
+
       // ── Toasts ────────────────────────────────────────
       toasts: [],
 
@@ -193,6 +200,7 @@ export const useAppStore = create<AppStore>()(
         theme: state.theme,
         lang: state.lang,
         userReviews: state.userReviews,
+        tourSeen: state.tourSeen,
       }),
       // Bumping this version forces a one-time migration, resetting the
       // persisted language to the current default.
