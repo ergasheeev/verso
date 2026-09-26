@@ -4,7 +4,6 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import { TourProvider } from "@/components/ui/Tour";
 import { useAppStore } from "@/store";
-import { Toaster } from "@/components/ui/Toaster";
 import Landing from "@/pages/Landing";
 import Auth from "@/pages/Auth";
 import Chat from "@/pages/Chat";
@@ -48,7 +47,6 @@ export default function App() {
       </Routes>
       <AuthModal />
       <CommandPalette />
-      <Toaster />
     </BrowserRouter>
     </TourProvider>
   );
