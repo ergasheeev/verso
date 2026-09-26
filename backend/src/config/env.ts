@@ -29,15 +29,26 @@ const envSchema = z.object({
   // Google changes it without warning.
   GEMINI_RPM_LIMIT: z.coerce.number().int().positive().default(5),
   GEMINI_RPD_LIMIT: z.coerce.number().int().positive().default(15),
+  // SMTP for the email verification code. Optional so the server still
+  // boots without it (useful locally) — when unset, mail.service.ts falls
+  // back to logging the code to the console instead of sending, and says
+  // so loudly at startup. Registration therefore still works end-to-end
+  // in development without real credentials.
+  // Preferred over SMTP when set. Many PaaS hosts (Render among them)
+  // block or blackhole outbound SMTP ports, which shows up as a request
+  // that hangs for minutes rather than a clean error. The HTTP API rides
+  // on 443 and can't be blocked that way.
   BREVO_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().default("smtp.gmail.com"),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
+  // What recipients see in the From: field. Defaults to SMTP_USER.
   MAIL_FROM: z.string().optional(),
   FRONTEND_URL: z
     .string({ required_error: "FRONTEND_URL is required" })
     .url("FRONTEND_URL must be a valid URL"),
+  CLOUDINARY_URL: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

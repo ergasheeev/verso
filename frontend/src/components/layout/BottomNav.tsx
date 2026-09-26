@@ -10,9 +10,10 @@ const SPRING = { type: "spring" as const, stiffness: 320, damping: 36 };
  * The mobile tab bar.
  *
  * Marked by a gold rule above the active tab rather than a filled chip behind
- * its icon — a filled pill is the piece of chrome that most makes a page read
- * as an app. The rule slides between tabs as a shared layout element, which
- * is the one place motion earns its keep down here.
+ * its icon — same reasoning as the sidebar: a filled pill is the piece of
+ * chrome that most makes a page read as an app. The rule slides between tabs
+ * as a shared layout element, which is the one place motion earns its keep
+ * down here.
  */
 export function BottomNav() {
   const navigate = useNavigate();
@@ -25,9 +26,14 @@ export function BottomNav() {
     return pathname === route || pathname.startsWith(route + "/");
   }
 
+  // Saved isn't in this bar — it's reachable from the header's bookmark icon
+  // on every breakpoint, so a sixth tab isn't needed to keep it reachable on
+  // a phone.
   const TABS = [
     { route: "/atlas",     Icon: Globe,    label: t("nav", "atlas")     },
     { route: "/locations", Icon: MapPin,   label: t("nav", "locations") },
+    // tab_community, not community: the page heading can be long, a tab
+    // label sharing a 320px bar with four others cannot.
     { route: "/community", Icon: Users,    label: t("nav", "tab_community") },
     { route: "/chat",      Icon: Sparkles, label: t("nav", "ai")        },
     { route: "/profile",   Icon: User,     label: t("nav", "profile")   },
@@ -66,8 +72,20 @@ export function BottomNav() {
                 aria-hidden
               />
 
+              {/* Sentence case at 10px, not 9px uppercase with tracking.
+                  Uppercase plus letter-spacing is what made these too wide:
+                  "Сообщество" truncated to "СООБЩЕСТ…" even at 9px, and 9px
+                  is below the legible floor on a phone anyway. Dropping the
+                  transform buys back more width than the extra pixel costs,
+                  so the labels are both larger and no longer clipped.
+
+                  truncate stays as a safety net: five tabs share a 320px bar
+                  on the smallest phones, and a wrapped label would change
+                  the bar's height mid-navigation. */}
               <span
                 className={cn(
+                  // 11px, not 10px: this is the primary navigation on every phone. At 320px the
+                  // five labels still fit, with truncate below as the safety net.
                   "max-w-full px-0.5 truncate text-[11px] leading-none tracking-[0.01em]",
                   "transition-colors duration-400",
                   active ? "text-accent" : "text-subtle",
