@@ -9,6 +9,8 @@ import Locations from "@/pages/Locations";
 import LocationDetail from "@/pages/LocationDetail";
 import Atlas from "@/pages/Atlas";
 import CountryHub from "@/pages/CountryHub";
+import RestaurantDetail from "@/pages/RestaurantDetail";
+import HotelDetail from "@/pages/HotelDetail";
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
           <Route path="/chat"          element={<Chat />} />
           <Route path="/locations"     element={<Locations />} />
           <Route path="/locations/:id" element={<LocationDetail />} />
+          <Route path="/services/restaurants/:id" element={<RestaurantDetail />} />
+          <Route path="/services/hotels/:id"      element={<HotelDetail />} />
         </Route>
       </Routes>
       <AuthModal />
