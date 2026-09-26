@@ -1,6 +1,8 @@
 /**
  * Auth form internals, shared by two hosts: the AuthModal (in-app sign-in
- * prompts) and the standalone /login and /signup pages.
+ * prompts, where a modal preserves whatever the visitor was doing) and the
+ * standalone /login and /signup pages. One implementation, so the
+ * verification-code and password-reset flows cannot drift apart.
  */
 import { useState, useRef, useEffect, useMemo, useId } from "react";
 import { isAxiosError } from "axios";
@@ -8,13 +10,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Eye, EyeOff, ChevronRight, PartyPopper, CheckCircle2, AlertCircle, Loader2, MailCheck, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, AUTH_TIMEOUT, warmBackend } from "@/lib/api-client";
 import { mergePlanOnLogin } from "@/lib/plan-sync";
 import { useTranslation } from "@/i18n";
 import type { User } from "@/types";
 import { Button } from "@/components/ui/editorial";
 import { CountrySelect } from "./CountrySelect";
 
+// 4-tier heuristic (length + character-class variety) — not trying to be
+// a real entropy calculator, just enough signal to nudge users away from
+// "password1" without being preachy about it.
 function passwordStrength(pw: string): 0 | 1 | 2 | 3 {
   if (!pw) return 0;
   let score = 0;
@@ -25,16 +30,46 @@ function passwordStrength(pw: string): 0 | 1 | 2 | 3 {
   return Math.min(score, 3) as 0 | 1 | 2 | 3;
 }
 
-function extractAuthError(err: unknown, fallback: string): string {
+// A timed-out or network-level failure (no response at all — most often a
+// free-tier backend cold-booting) reads very differently to a user than a real
+// validation error, so it gets its own message instead of the generic fallback.
+function extractAuthError(err: unknown, fallback: string, wakingUp: string): string {
+  // isAxiosError actually checks the shape rather than assuming any
+  // thrown value looks like one.
   if (!isAxiosError<{ message?: string }>(err)) return fallback;
-  return err.response?.data?.message ?? fallback;
+  if (err.response?.data?.message) return err.response.data.message;
+  if (err.code === "ECONNABORTED" || !err.response) return wakingUp;
+  return fallback;
 }
 
+/**
+ * True when the request never got an answer — a client-side timeout, a dropped
+ * connection, a backend still cold-booting.
+ *
+ * This is handled apart from a real error response because the server may well
+ * have succeeded: a cold-start registration can take ~41s, so the account is
+ * created and the code emailed while the browser has already given up. Treating
+ * that as a plain error would leave the user pressing the button again into the
+ * 60s resend cooldown ("wait 58 seconds") — no account, no code, no way forward,
+ * from a registration that actually worked.
+ */
 function isNoResponseError(err: unknown): boolean {
   if (!isAxiosError(err)) return false;
   return err.code === "ECONNABORTED" || !err.response;
 }
 
+/**
+ * Seconds to wait, when the 429 is the per-address code cooldown.
+ *
+ * Two different 429s can come back from these endpoints and they mean
+ * opposite things. `CODE_COOLDOWN` means a code was just issued and is
+ * already in the user's inbox — the right move is the code screen with a
+ * countdown. The IP rate limiter's 429 means too many requests from this
+ * address altogether, and may well mean no account was created at all;
+ * that one has to stay an error on the form. They are indistinguishable by
+ * status, so the backend tags the first with a code, and this reads the
+ * tag rather than hunting for digits in a translated sentence.
+ */
 function codeCooldownSeconds(err: unknown): number | null {
   if (!isAxiosError<{ code?: string; retryAfter?: number }>(err)) return null;
   if (err.response?.status !== 429 || err.response.data?.code !== "CODE_COOLDOWN") return null;
@@ -44,7 +79,10 @@ function codeCooldownSeconds(err: unknown): number | null {
   return Number.isFinite(header) && header > 0 ? Math.ceil(header) : 60;
 }
 
-// ── Verification code entry ──────────────────────────────────────────
+// ── Verification code entry ──────────────────────────────────────────────────
+// Six separate boxes rather than one text field: it makes the expected
+// length obvious without instructions, and lets paste-from-email fill all
+// six at once (handled in onChange below).
 function CodeInput({
   value,
   onChange,
@@ -63,11 +101,14 @@ function CodeInput({
   function setDigit(i: number, raw: string) {
     const digits = raw.replace(/\D/g, "");
     if (!digits) {
+      // Deleting: blank this box only.
       const next = value.split("");
       next[i] = "";
       onChange(next.join("").slice(0, 6));
       return;
     }
+    // Pasting a whole code into any box should fill from that box onward,
+    // not drop everything but the first character.
     const next = (value.slice(0, i) + digits).slice(0, 6);
     onChange(next);
     const focusAt = Math.min(i + digits.length, 5);
@@ -76,6 +117,8 @@ function CodeInput({
   }
 
   function onKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    // Backspace on an already-empty box steps back, which is what every
+    // native OTP field does — without it the caret gets stuck.
     if (e.key === "Backspace" && !value[i] && i > 0) refs.current[i - 1]?.focus();
     if (e.key === "ArrowLeft" && i > 0) refs.current[i - 1]?.focus();
     if (e.key === "ArrowRight" && i < 5) refs.current[i + 1]?.focus();
@@ -96,6 +139,8 @@ function CodeInput({
           maxLength={6}
           aria-label={`Digit ${i + 1}`}
           className={cn(
+            // Explicit width and height so the boxes are square-ish; padding alone does
+            // not give a fixed height.
             "w-11 h-12 rounded-sm border text-center text-[19px] tabular",
             "bg-transparent border-[var(--input-border)] text-ink",
             "outline-none transition-colors duration-400 focus:border-gold-400",
@@ -117,9 +162,30 @@ function VerifyStep({
 }: {
   email: string;
   onVerified: (user: User) => void;
+  /**
+   * Seconds already burnt on the server's resend cooldown when this screen
+   * opens. Registering issues a code, so arriving here means the 60s clock
+   * is already running — starting the button at zero invited a tap that
+   * could only ever come back 429.
+   */
   initialCooldown?: number;
+  /**
+   * Shown once, above the code boxes. Used when the request that led here
+   * timed out: the account was probably created and the code probably sent,
+   * but "probably" is the honest word and the user deserves to be told.
+   */
   initialNotice?: string;
+  /**
+   * Only ever set when the backend is running in development WITHOUT SMTP
+   * credentials — in that case no mail was actually sent, so it hands the
+   * code back and we show it here. Production never returns this field.
+   */
   initialDevCode?: string;
+  /**
+ * The way back from a mistyped address; without it the only option is resending
+ * to the same wrong inbox. Optional because ForgotPassword has no VerifyStep
+ * call of its own.
+ */
   onChangeEmail?: () => void;
 }) {
   const { t } = useTranslation();
@@ -131,6 +197,8 @@ function VerifyStep({
   const [devCode, setDevCode] = useState(initialDevCode);
   const [notice, setNotice] = useState(initialNotice);
 
+  // The backend enforces a 60s resend cooldown; mirroring it here means the
+  // button visibly counts down instead of failing with a 429 when tapped.
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
@@ -144,12 +212,12 @@ function VerifyStep({
     setError("");
     try {
       const res = await apiClient.post<{ user: User; accessToken: string }>(
-        "/auth/verify-email", { email, code: value }
+        "/auth/verify-email", { email, code: value }, { timeout: AUTH_TIMEOUT }
       );
       localStorage.setItem("verso-token", res.accessToken);
       onVerified(res.user);
     } catch (err: unknown) {
-      setError(extractAuthError(err, t("auth", "err_verify")));
+      setError(extractAuthError(err, t("auth", "err_verify"), t("auth", "err_waking_up")));
       setCode("");
     } finally {
       setLoading(false);
@@ -163,11 +231,15 @@ function VerifyStep({
     setNotice(undefined);
     try {
       const res = await apiClient.post<{ devCode?: string } | null>(
-        "/auth/resend-code", { email }
+        "/auth/resend-code", { email }, { timeout: AUTH_TIMEOUT }
       );
       if (res?.devCode) setDevCode(res.devCode);
       showToast(t("auth", "resend_sent"), undefined, "success");
     } catch (err: unknown) {
+      // A 429 here is not a failure to report as one — it means a code is
+      // already in flight. Sync the countdown to whatever the server is
+      // actually waiting for and say so, instead of showing an error beside
+      // a button the user can do nothing about.
       const wait = codeCooldownSeconds(err);
       if (wait !== null) {
         setCooldown(wait);
@@ -175,7 +247,7 @@ function VerifyStep({
         return;
       }
       setCooldown(0);
-      setError(extractAuthError(err, t("auth", "err_verify")));
+      setError(extractAuthError(err, t("auth", "err_verify"), t("auth", "err_waking_up")));
     }
   }
 
@@ -188,6 +260,10 @@ function VerifyStep({
         <p className="tabular text-[13px] text-ink mt-1 break-all">{email}</p>
       </div>
 
+      {/* Explains why this screen appeared without a clean confirmation —
+          the registration request timed out, or a code was already in
+          flight. Informational, not an error: nothing has gone wrong that
+          the reader needs to fix, and the next step is the same either way. */}
       {notice && (
         <p
           role="status"
@@ -199,6 +275,11 @@ function VerifyStep({
         </p>
       )}
 
+      {/* Development affordance: the server had no SMTP credentials, so no
+          mail was sent and it handed the code back instead. Styled as an
+          obvious warning, never as normal UI, and unreachable in production
+          because the backend only returns devCode when NODE_ENV is
+          development AND SMTP is unconfigured. */}
       {devCode && (
         <div className="rounded-sm border border-[var(--gold-hairline)] bg-[var(--gold-soft)] px-4 py-3 text-center">
           <p className="kicker kicker-gold mb-1.5">Dev — SMTP not configured</p>
@@ -257,7 +338,7 @@ function VerifyStep({
   );
 }
 
-// ── Shared input ──────────────────────────────────────────────────────
+// ── Shared input ──────────────────────────────────────────────────────────────
 export function Field({
   label, error, type = "text", value, onChange, placeholder, autoComplete, required,
 }: {
@@ -266,9 +347,17 @@ export function Field({
 }) {
   const [show, setShow] = useState(false);
   const isPassword = type === "password";
+  // A real <label for>, not a styled <span>: it associates the label with the
+  // input, so a screen reader announces each field by name and clicking the label
+  // focuses the field.
   const fieldId = useId();
   const errorId = `${fieldId}-error`;
   return (
+    // Underlined, not boxed — a page of boxed fields reads as a form, an
+    // underlined one reads as a page you happen to be filling in. Matches the
+    // Field in the editorial kit; this one stays separate because it takes an
+    // (v: string) => void onChange that the whole auth flow is written
+    // against.
     <div>
       <label htmlFor={fieldId} className="kicker block mb-2">
         {label}{required && <span className="text-copper-400 ml-1">*</span>}
@@ -293,6 +382,8 @@ export function Field({
           )}
         />
         {isPassword && (
+          // 40×40 hit area with the glyph pinned right, rather than a bare 16×16 icon: the
+          // reveal toggle sits in the one form everybody has to get through.
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
@@ -305,6 +396,8 @@ export function Field({
           </button>
         )}
       </div>
+      {/* role="alert" so the message is announced when it appears, not only
+          found if someone happens to navigate back over the field. */}
       {error && (
         <p id={errorId} role="alert" className="mt-2 text-[12px] text-copper-400">
           {error}
@@ -314,11 +407,13 @@ export function Field({
   );
 }
 
-// ── Password strength meter ────────────────────────────────────────────
+// ── Password strength meter ────────────────────────────────────────────────
 function PasswordStrengthMeter({ password, t }: { password: string; t: ReturnType<typeof useTranslation>["t"] }) {
   if (!password) return null;
   const score = passwordStrength(password);
   const labels = [t("auth", "pw_weak"), t("auth", "pw_weak"), t("auth", "pw_medium"), t("auth", "pw_strong")];
+  // Three hairlines, not three coloured bars. Strength is carried by how
+  // many are lit; only genuinely weak reads as a warning colour.
   const colors = ["bg-copper-400", "bg-copper-400", "bg-gold-600", "bg-gold-400"];
   return (
     <div className="flex items-center gap-3 mt-3">
@@ -343,9 +438,11 @@ function PasswordStrengthMeter({ password, t }: { password: string; t: ReturnTyp
   );
 }
 
-// ── Forgot / reset password ──────────────────────────────────────────
-// Three stages in one component (ask for email → code + new password →
-// done) rather than three screens, because the email carries between them.
+// ── Forgot / reset password ──────────────────────────────────────────────────
+// Three stages in one component (ask for email → code + new password → done)
+// rather than three screens, because the email is carried between them and
+// splitting it up would mean threading that state back through the parent
+// for no user-visible benefit.
 function ForgotPassword({
   onDone,
   onCancel,
@@ -365,6 +462,9 @@ function ForgotPassword({
   const [error, setError] = useState("");
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
+  // Same floor as registration's PASSWORD_RULE — the backend rejects a
+  // weak new password on reset exactly as it would on signup, so the button
+  // gate has to match or "valid here" would enable a submit that 400s.
   const passwordValid = password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
   const canReset = code.length === 6 && passwordValid;
 
@@ -374,12 +474,12 @@ function ForgotPassword({
     setError("");
     try {
       const res = await apiClient.post<{ devCode?: string } | null>(
-        "/auth/forgot-password", { email: email.trim().toLowerCase() }
+        "/auth/forgot-password", { email: email.trim().toLowerCase() }, { timeout: AUTH_TIMEOUT }
       );
       if (res?.devCode) setDevCode(res.devCode);
       setStage("reset");
     } catch (err: unknown) {
-      setError(extractAuthError(err, t("auth", "err_reset")));
+      setError(extractAuthError(err, t("auth", "err_reset"), t("auth", "err_waking_up")));
     } finally {
       setLoading(false);
     }
@@ -393,12 +493,15 @@ function ForgotPassword({
       const res = await apiClient.post<{ user: User; accessToken: string }>(
         "/auth/reset-password",
         { email: email.trim().toLowerCase(), code, newPassword: password },
+        { timeout: AUTH_TIMEOUT }
       );
       localStorage.setItem("verso-token", res.accessToken);
       setStage("done");
+      // Brief pause so the success state is actually seen rather than the
+      // modal vanishing the instant the request resolves.
       setTimeout(() => onDone(res.user), 1100);
     } catch (err: unknown) {
-      setError(extractAuthError(err, t("auth", "err_reset")));
+      setError(extractAuthError(err, t("auth", "err_reset"), t("auth", "err_waking_up")));
       setCode("");
     } finally {
       setLoading(false);
@@ -499,7 +602,7 @@ function ForgotPassword({
   );
 }
 
-// ── Login tab ─────────────────────────────────────────────────────────
+// ── Login tab ─────────────────────────────────────────────────────────────────
 export function LoginTab({ onClose }: { onClose: () => void }) {
   const { login } = useAppStore();
   const { t } = useTranslation();
@@ -508,7 +611,14 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
   const [errors, setErrors]     = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState("");
   const [loading, setLoading]   = useState(false);
+  // Set when the backend reports EMAIL_NOT_VERIFIED, which switches this
+  // tab over to the code screen rather than dead-ending on an error.
   const [needsVerify, setNeedsVerify] = useState(false);
+
+  // Same reason as on the sign-up form: start the free-tier host waking as
+  // soon as the form is on screen, so the cold start overlaps with typing
+  // rather than landing on the submit.
+  useEffect(() => { warmBackend(); }, []);
   const [forgot, setForgot] = useState(false);
 
   function validate() {
@@ -532,21 +642,27 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
     setLoading(true);
     setApiError("");
     try {
+      // Longer timeout: a free-tier host that's spun down from inactivity
+      // needs 30-60s to cold-boot the whole process, not just the DB.
       const res = await apiClient.post<{ user: User; accessToken: string }>(
-        "/auth/login", { email: email.trim().toLowerCase(), password }
+        "/auth/login", { email: email.trim().toLowerCase(), password }, { timeout: AUTH_TIMEOUT }
       );
       localStorage.setItem("verso-token", res.accessToken);
       finishLogin(res.user);
     } catch (err: unknown) {
+      // Correct password, unconfirmed address: send them to the code screen
+      // and re-issue a code, instead of showing an error they can't act on.
       const code = isAxiosError<{ code?: string }>(err) ? err.response?.data?.code : undefined;
       if (code === "EMAIL_NOT_VERIFIED") {
+        // AUTH_TIMEOUT rather than the 20s default, which is shorter than a cold start:
+        // on exactly this request it would give up before the server answered.
         apiClient
-          .post("/auth/resend-code", { email: email.trim().toLowerCase() })
+          .post("/auth/resend-code", { email: email.trim().toLowerCase() }, { timeout: AUTH_TIMEOUT })
           .catch(() => {});
         setNeedsVerify(true);
         return;
       }
-      setApiError(extractAuthError(err, t("auth", "err_login")));
+      setApiError(extractAuthError(err, t("auth", "err_login"), t("auth", "err_waking_up")));
     } finally {
       setLoading(false);
     }
@@ -565,6 +681,8 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
   if (forgot) {
     return (
       <ForgotPassword
+        // Carry over whatever they already typed, so someone who tried to
+        // sign in and failed doesn't retype their address.
         initialEmail={email}
         onDone={finishLogin}
         onCancel={() => setForgot(false)}
@@ -573,6 +691,7 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
   }
 
   return (
+    <>
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <Field label={t("auth", "email")} type="email" value={email} onChange={setEmail}
         placeholder={t("auth", "email_placeholder")} autoComplete="email" error={errors.email} />
@@ -597,10 +716,11 @@ export function LoginTab({ onClose }: { onClose: () => void }) {
         {t("auth", "forgot_link")}
       </button>
     </form>
+    </>
   );
 }
 
-// ── Register tab ──────────────────────────────────────────────────────
+// ── Register tab ──────────────────────────────────────────────────────────────
 export function RegisterTab({ onClose }: { onClose: () => void }) {
   const { login } = useAppStore();
   const { t, lang } = useTranslation();
@@ -615,9 +735,19 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
   const [loading, setLoading]   = useState(false);
   const [doneUser, setDoneUser] = useState("");
   const [devCode, setDevCode] = useState<string | undefined>();
+  /** Registration got no answer back — see the catch in onSubmit. */
   const [timedOut, setTimedOut] = useState(false);
+  /** Seconds the server says are still left on its resend cooldown. */
   const [pendingCooldown, setPendingCooldown] = useState(0);
 
+  // Wake the backend while the form is being filled in, not after it is
+  // submitted. On a free-tier host the first request of the hour pays the
+  // whole cold start; moving that cost to the moment the screen opens hides
+  // it behind the twenty-odd seconds of typing that follow.
+  useEffect(() => { warmBackend(); }, []);
+
+  // There is no separate language step: `lang` is taken from the interface language
+  // the visitor is already reading, and signup opens directly on the form.
   const STEPS = [
     t("auth", "step_info"),
     t("auth", "step_verify"),
@@ -631,15 +761,27 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
     if (!email.trim())                     e.email    = t("auth", "err_email_required");
     else if (!/\S+@\S+\.\S+/.test(email))  e.email    = t("auth", "err_email_invalid");
     if (password.length < 8)               e.password = t("auth", "err_password_short");
+    // Matches the backend's PASSWORD_RULE in auth.router.ts — checked here too so a
+    // weak-but-long password ("aaaaaaaa") is caught with a translated message before
+    // the request round-trips to a backend error that is only ever in English.
     else if (!/[A-Za-z]/.test(password) || !/\d/.test(password))
                                             e.password = t("auth", "err_password_weak");
     return e;
   }
 
+  // Live validity for the submit-button gate — recomputed on every
+  // keystroke but only actually SHOWN (via `errors`) once the user has
+  // tried to submit once, so it doesn't flag empty required fields
+  // as "errors" before they've had a chance to type anything.
   const liveErrors = useMemo(computeErrors, [name, surname, email, password]);
   const isValid = Object.keys(liveErrors).length === 0;
   const [attempted, setAttempted] = useState(false);
 
+  // Once the user has tried to submit at least once, keep error messages
+  // live as they correct each field — re-validating silently before that
+  // point would flag untouched required fields as "wrong" the instant
+  // the form opens, which reads as the form yelling at you before you've
+  // done anything.
   useEffect(() => {
     if (attempted) setErrors(liveErrors);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -657,24 +799,36 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
     setLoading(true);
     setApiError("");
     try {
+      // Register does not return a session: it creates the account unverified and
+      // emails a code. Step 2 collects that code, and /auth/verify-email is what
+      // issues the tokens.
       const res = await apiClient.post<{ devCode?: string }>(
         "/auth/register",
         { name: name.trim(), surname: surname.trim(), email: email.trim().toLowerCase(), password, country, lang },
+        { timeout: AUTH_TIMEOUT }
       );
       setDevCode(res?.devCode);
       setStep(2);
     } catch (err: unknown) {
+      // A timeout is not a failed registration. A cold start answers POST
+      // /auth/register in ~41s — the account is created and the code emailed whether
+      // or not the browser was still listening. So move to the code screen and be
+      // straight about the uncertainty: if a code arrives they can use it, and if none
+      // does, resend is right there once the clock runs out.
       if (isNoResponseError(err)) {
         setTimedOut(true);
         setStep(2);
         return;
       }
+      // Registering twice inside the cooldown lands here. The account
+      // exists and a code is already on its way, so the code screen is
+      // again the right place to be, not an error under the form.
       if (codeCooldownSeconds(err) !== null) {
         setPendingCooldown(codeCooldownSeconds(err)!);
         setStep(2);
         return;
       }
-      setApiError(extractAuthError(err, t("auth", "err_register")));
+      setApiError(extractAuthError(err, t("auth", "err_register"), t("auth", "err_waking_up")));
     } finally {
       setLoading(false);
     }
@@ -689,6 +843,8 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
 
   return (
     <div>
+      {/* Progress — hairlines, not rounded pills. Everything else that marks state in
+          this product is a rule. */}
       <div className="flex items-center justify-between gap-4 mb-5">
         <span className="kicker">{STEPS[step - 1]}</span>
         <span className="tabular text-[11px] sm:text-[10px] text-subtle shrink-0">
@@ -708,6 +864,7 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
+      {/* Step 1 — Form */}
       {step === 1 && (
         <motion.form
           key="step1"
@@ -719,6 +876,9 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           className="space-y-3"
         >
+          {/* Stacked on the narrowest phones. Side by side these two are
+              ~130px each at 320px wide, which truncates both the placeholder
+              and any validation message under them. */}
           <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
             <Field label={t("auth", "name")} value={name} onChange={setName} required
               placeholder={t("auth", "name_placeholder")} autoComplete="given-name" error={errors.name} />
@@ -753,6 +913,7 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
               {apiError}
             </p>
           )}
+          {/* No "Back" here: this is the first step. */}
           <div className="pt-2">
             <Button type="submit" fullWidth disabled={loading || (attempted && !isValid)}>
               {loading && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
@@ -762,6 +923,7 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
         </motion.form>
       )}
 
+      {/* Step 2 — Email verification code */}
       {step === 2 && (
         <motion.div
           key="step2"
@@ -775,12 +937,15 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
             onVerified={onVerified}
             initialDevCode={devCode}
             onChangeEmail={() => setStep(1)}
+            // Registering issues a code, so the server's 60s clock is
+            // already running when this screen opens.
             initialCooldown={pendingCooldown || 60}
             initialNotice={timedOut ? t("auth", "register_maybe_sent") : undefined}
           />
         </motion.div>
       )}
 
+      {/* Step 3 — Success */}
       {step === 3 && (
         <motion.div
           key="step3"
@@ -820,3 +985,4 @@ export function RegisterTab({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
+

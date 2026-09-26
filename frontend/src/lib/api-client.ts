@@ -71,6 +71,35 @@ instance.interceptors.response.use(
   }
 );
 
+/**
+ * Timeout for the auth endpoints.
+ *
+ * A Render free-tier cold start can take ~48s to answer a request, so the
+ * timeout must exceed that: otherwise a registration that succeeds server-side
+ * (account created, code emailed) could still show the user a failure. 70s clears
+ * the worst case, and `warmBackend()` below usually means the wait never happens.
+ */
+export const AUTH_TIMEOUT = 70_000;
+
+let warmed = false;
+
+/**
+ * Wakes a sleeping free-tier backend before the user needs it.
+ *
+ * Call this when an auth surface opens: filling in the form takes a person
+ * twenty seconds or more, so the cold start overlaps with typing instead of
+ * following the submit button. Fire-and-forget on purpose: the caller must not
+ * await it, and a failure here is not worth reporting because the real request
+ * will surface any problem itself.
+ */
+export function warmBackend(): void {
+  if (warmed) return;
+  warmed = true;
+  instance
+    .get("/locations/featured", { timeout: AUTH_TIMEOUT })
+    .catch(() => { /* Best effort — the real call reports any failure. */ });
+}
+
 export const apiClient = {
   get:    <T>(url: string, cfg?: AxiosRequestConfig) => instance.get<T>(url, cfg).then(r => r.data as T),
   post:   <T>(url: string, data?: unknown, cfg?: AxiosRequestConfig) => instance.post<T>(url, data, cfg).then(r => r.data as T),
